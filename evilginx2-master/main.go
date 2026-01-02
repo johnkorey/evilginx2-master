@@ -186,7 +186,10 @@ func main() {
 
 	// Start admin dashboard
 	if *admin_port > 0 {
-		adminAPI, err := core.NewAdminAPI(cfg, crt_db, db, hp, bl, *developer_mode, *cfg_dir)
+		// Create license manager (optional - may not be configured)
+		licenseManager, _ := core.NewLicenseManager(*cfg_dir)
+		
+		adminAPI, err := core.NewAdminAPI(cfg, crt_db, db, hp, bl, *developer_mode, *cfg_dir, licenseManager)
 		if err != nil {
 			log.Error("admin API: %v", err)
 		} else {

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/kgretzky/evilginx2/log"
 )
 
 // =====================================================
