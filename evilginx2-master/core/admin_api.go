@@ -868,7 +868,7 @@ func (api *AdminAPI) handleGenerateAllHostnames(w http.ResponseWriter, r *http.R
 	}
 
 	// Get all phishlets
-	phishlets := api.cfg.GetPhishletsList()
+	phishlets := api.cfg.GetPhishletNames()
 	generated := 0
 	failed := 0
 	results := make(map[string]string)
