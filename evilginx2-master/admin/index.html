@@ -25,43 +25,10 @@
                 <p class="version">Admin Dashboard v3.3.0</p>
             </div>
             <form id="login-form" class="login-form">
-                <!-- Toggle between login methods -->
-                <div class="login-toggle">
-                    <button type="button" class="toggle-btn active" data-method="credentials">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                            <circle cx="12" cy="7" r="4"/>
-                        </svg>
-                        Credentials
-                    </button>
-                    <button type="button" class="toggle-btn" data-method="apikey">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
-                        </svg>
-                        API Key
-                    </button>
+                <div class="form-group">
+                    <label for="api-key">API Key</label>
+                    <input type="password" id="api-key" placeholder="Enter your API key" autocomplete="off" required>
                 </div>
-                
-                <!-- Credentials Login (default) -->
-                <div id="credentials-login" class="login-method active">
-                    <div class="form-group">
-                        <label for="login-email">Email</label>
-                        <input type="email" id="login-email" placeholder="Enter your email" autocomplete="email">
-                    </div>
-                    <div class="form-group">
-                        <label for="login-password">Password</label>
-                        <input type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password">
-                    </div>
-                </div>
-                
-                <!-- API Key Login (alternative) -->
-                <div id="apikey-login" class="login-method">
-                    <div class="form-group">
-                        <label for="api-key">API Key</label>
-                        <input type="password" id="api-key" placeholder="Enter your API key" autocomplete="off">
-                    </div>
-                </div>
-                
                 <button type="submit" class="btn btn-primary btn-block">
                     <span>Sign In</span>
                     <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -69,7 +36,7 @@
                     </svg>
                 </button>
             </form>
-            <p class="login-hint" id="login-hint">Use your Management Platform credentials</p>
+            <p class="login-hint">Get your API key from the Management Platform</p>
         </div>
     </div>
 
