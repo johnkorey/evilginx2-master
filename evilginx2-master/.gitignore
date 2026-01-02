@@ -1,0 +1,90 @@
+# =====================================================
+# Evilginx2 - .gitignore
+# =====================================================
+
+# Management Platform (separate repository)
+management-platform/
+
+# Binaries
+evilginx
+evilginx.exe
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build directories
+build/
+dist/
+bin/
+
+# Data directories (contain sensitive data)
+data/
+.data/
+
+# Config files with credentials
+*.yaml.local
+config.yaml
+api_key.txt
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.cert
+certs/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Go
+vendor/
+
+# Phishlets (may contain custom/sensitive configs)
+# Uncomment if you want to exclude custom phishlets
+# phishlets/*.yaml
+
+# Session data
+sessions/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Debug files
+debug/
+*.debug

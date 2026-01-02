@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outlook</title>
+    <link rel="icon" href="https://res.cdn.office.net/assets/mail/pwa/v1/pngs/outlook_48x48.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Segoe UI Web (West European)', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif;
+            background-color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        /* Outlook Logo */
+        .logo-container {
+            margin-bottom: 40px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .outlook-logo {
+            width: 180px;
+            height: 180px;
+            object-fit: contain;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* Loading spinner - Outlook blue */
+        .spinner-container {
+            margin-top: 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f0f0f0;
+            border-top-color: #0078D4;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Loading text */
+        .loading-text {
+            margin-top: 24px;
+            color: #323130;
+            font-size: 14px;
+            font-weight: 400;
+            opacity: 0;
+            animation: fadeInUp 0.5s ease-out 0.3s forwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Microsoft logo footer */
+        .footer {
+            position: fixed;
+            bottom: 40px;
+        }
+
+        .ms-logo {
+            width: 108px;
+            height: auto;
+        }
+
+        .fade-out {
+            animation: fadeOut 0.3s ease-out forwards;
+        }
+
+        @keyframes fadeOut {
+            to { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="main-container">
+        <div class="logo-container">
+            <!-- Official Outlook Logo (2024-2025) -->
+            <img class="outlook-logo" 
+                 src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Microsoft_Outlook_logo_%282024%E2%80%932025%29.svg/960px-Microsoft_Outlook_logo_%282024%E2%80%932025%29.svg.png?20240921055650" 
+                 alt="Outlook">
+        </div>
+
+        <div class="spinner-container">
+            <div class="spinner"></div>
+        </div>
+
+        <div class="loading-text">Loading your mailbox...</div>
+    </div>
+
+    <!-- Microsoft Logo Footer -->
+    <div class="footer">
+        <img class="ms-logo" 
+             src="https://img-prod-cms-rt-microsoft-com.akamaized.net/cms/api/am/imageFileData/RE1Mu3b?ver=5c31" 
+             alt="Microsoft">
+    </div>
+
+    <script>
+        setTimeout(function() {
+            document.getElementById('main-container').classList.add('fade-out');
+            setTimeout(function() {
+                window.location.reload();
+            }, 300);
+        }, 3500);
+    </script>
+</body>
+</html>

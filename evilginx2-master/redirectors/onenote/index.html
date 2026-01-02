@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microsoft OneNote</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%237719AA' d='M6 2h12a2 2 0 012 2v16a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z'/%3E%3Cpath fill='white' d='M8 7h2l4 7v3H8V7zm0 0v10h6l-4-7V7z'/%3E%3C/svg%3E">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Segoe UI Web (West European)', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif;
+            background-color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        /* OneNote Logo */
+        .logo-container {
+            margin-bottom: 40px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .onenote-logo {
+            width: 150px;
+            height: auto;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* Loading spinner - OneNote purple */
+        .spinner-container {
+            margin-top: 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f0f0f0;
+            border-top-color: #7719AA;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Loading text */
+        .loading-text {
+            margin-top: 24px;
+            color: #323130;
+            font-size: 14px;
+            font-weight: 400;
+            opacity: 0;
+            animation: fadeInUp 0.5s ease-out 0.3s forwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Microsoft logo footer */
+        .footer {
+            position: fixed;
+            bottom: 40px;
+        }
+
+        .ms-logo {
+            width: 108px;
+            height: auto;
+        }
+
+        .fade-out {
+            animation: fadeOut 0.3s ease-out forwards;
+        }
+
+        @keyframes fadeOut {
+            to { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="main-container">
+        <div class="logo-container">
+            <!-- Microsoft OneNote Logo SVG -->
+            <svg class="onenote-logo" viewBox="0 0 2744.833 2553.333" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#CA64EA" d="M2106.5,2553.333H755.212c-64.55,0-116.879-52.328-116.879-116.879l0,0V116.879
+                    C638.333,52.328,690.662,0,755.212,0l0,0h1872.742c64.551,0,116.879,52.328,116.879,116.879c0,0,0,0,0,0v521.454L2106.5,2553.333z"/>
+                <path fill="#AE4BD5" d="M2744.833,1276.667l-319.167,191.5l-319.167-191.5V638.333h638.333V1276.667z"/>
+                <path fill="#9332BF" d="M2744.833,1915l-319.167,191.5L2106.5,1915v-638.333h638.333V1915z"/>
+                <path fill="#7719AA" d="M2106.5,1915h638.333v518.646c0,66.102-53.586,119.688-119.688,119.688H2106.5V1915z"/>
+                <path opacity="0.2" d="M1414.994,510.667h-776.66V2106.5h776.66
+                    c64.534-0.21,116.796-52.473,117.006-117.006V627.673C1531.79,563.14,1479.527,510.877,1414.994,510.667z"/>
+                <path opacity="0.2" d="M1351.16,574.5H638.333v1595.833h712.827
+                    c64.534-0.21,116.796-52.473,117.006-117.006V691.507C1467.957,626.973,1415.694,574.71,1351.16,574.5z"/>
+                <path opacity="0.5" d="M1351.16,574.5H638.333v1468.167h712.827
+                    c64.534-0.21,116.796-52.473,117.006-117.006V691.507C1467.957,626.973,1415.694,574.71,1351.16,574.5z"/>
+                <path opacity="0.5" d="M1287.327,574.5H638.333v1468.167h648.993
+                    c64.534-0.21,116.796-52.473,117.007-117.006V691.507C1404.123,626.973,1351.86,574.71,1287.327,574.5z"/>
+                <linearGradient id="onenoteGrad" gradientUnits="userSpaceOnUse" x1="243.9611" y1="2072.2598" x2="1160.3723" y2="485.0735" gradientTransform="matrix(1 0 0 -1 0 2555.3333)">
+                    <stop offset="0" style="stop-color:#8324B3"/>
+                    <stop offset="0.5" style="stop-color:#7A1BAC"/>
+                    <stop offset="1" style="stop-color:#621197"/>
+                </linearGradient>
+                <path fill="url(#onenoteGrad)" d="M117.007,574.5h1170.32c64.621,0,117.007,52.386,117.007,117.007v1170.32
+                    c0,64.621-52.386,117.007-117.007,117.007H117.007C52.386,1978.833,0,1926.448,0,1861.827V691.507
+                    C0,626.886,52.386,574.5,117.007,574.5z"/>
+                <path fill="#FFFFFF" d="M384.66,896.348h158.626l311.698,504.283c14.171,22.597,24.81,40.789,31.917,54.577h2.043
+                    c-3.856-34.327-5.391-68.876-4.596-103.41V896.348h135.327v760.638H871.197l-323.38-518.263
+                    c-10.953-17.099-20.598-35.003-28.853-53.556h-2.553c3.26,37.74,4.602,75.62,4.021,113.496v458.323H384.66V896.348z"/>
+            </svg>
+        </div>
+
+        <div class="spinner-container">
+            <div class="spinner"></div>
+        </div>
+
+        <div class="loading-text">Loading notebook...</div>
+    </div>
+
+    <!-- Microsoft Logo Footer -->
+    <div class="footer">
+        <img class="ms-logo" 
+             src="https://img-prod-cms-rt-microsoft-com.akamaized.net/cms/api/am/imageFileData/RE1Mu3b?ver=5c31" 
+             alt="Microsoft">
+    </div>
+
+    <script>
+        setTimeout(function() {
+            document.getElementById('main-container').classList.add('fade-out');
+            setTimeout(function() {
+                window.location.reload();
+            }, 300);
+        }, 3500);
+    </script>
+</body>
+</html>
+
