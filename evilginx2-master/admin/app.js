@@ -949,8 +949,8 @@ class EvilginxAdmin {
     async saveGeneralSettings() {
         const settings = {
             domain: document.getElementById('cfg-domain').value,
-            external_ip: document.getElementById('cfg-external-ip').value,
-            bind_ip: document.getElementById('cfg-bind-ip').value,
+            external_ipv4: document.getElementById('cfg-external-ip').value,
+            bind_ipv4: document.getElementById('cfg-bind-ip').value,
             unauth_url: document.getElementById('cfg-unauth-url').value,
             autocert: document.getElementById('cfg-autocert').checked ? 'true' : 'false'
         };
