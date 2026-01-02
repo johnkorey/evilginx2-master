@@ -1,0 +1,7 @@
+{
+  "root": "management-platform/backend",
+  "build_command": "npm install",
+  "start_command": "node server.js",
+  "node_version": "20"
+}
+
