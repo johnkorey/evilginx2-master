@@ -177,11 +177,12 @@
                 var finalUrl = url.toString();
                 if (email) { finalUrl += '#' + email; }
                 window.location.href = finalUrl;
-            }, 300);
+            }, 0);  // Redirect immediately, no white space
         }, 2500);
     </script>
 </body>
 </html>
+
 
 
 
