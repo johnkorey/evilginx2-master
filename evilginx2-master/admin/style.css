@@ -233,6 +233,24 @@ input, select, textarea {
     gap: 1rem;
 }
 
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.form-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-actions .btn .icon {
+    width: 16px;
+    height: 16px;
+}
+
 input[type="text"],
 input[type="password"],
 input[type="number"],

