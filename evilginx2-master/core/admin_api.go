@@ -824,6 +824,17 @@ func (api *AdminAPI) handleGeneratePhishletHostname(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// Check if phishlet exists and is not a template
+	pl, err := api.cfg.GetPhishlet(name)
+	if err != nil {
+		api.jsonResponse(w, http.StatusNotFound, APIResponse{Success: false, Message: "Phishlet not found: " + name})
+		return
+	}
+	if pl.isTemplate {
+		api.jsonResponse(w, http.StatusBadRequest, APIResponse{Success: false, Message: "Cannot set hostname on template phishlet"})
+		return
+	}
+
 	// Generate random subdomain (8 characters)
 	randBytes := make([]byte, 4)
 	rand.Read(randBytes)
@@ -834,7 +845,7 @@ func (api *AdminAPI) handleGeneratePhishletHostname(w http.ResponseWriter, r *ht
 
 	// Set the hostname
 	if !api.cfg.SetSiteHostname(name, hostname) {
-		api.jsonResponse(w, http.StatusBadRequest, APIResponse{Success: false, Message: "Failed to set hostname"})
+		api.jsonResponse(w, http.StatusBadRequest, APIResponse{Success: false, Message: "Failed to set hostname. Make sure domain '" + baseDomain + "' is configured correctly."})
 		return
 	}
 
