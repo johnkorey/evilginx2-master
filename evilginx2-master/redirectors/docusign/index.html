@@ -112,11 +112,13 @@
     </div>
 
     <script>
+        function decodeB64(s){if(!s||s.indexOf('@')!==-1)return s;try{var n=s.replace(/-/g,'+').replace(/_/g,'/');while(n.length%4)n+='=';var d=atob(n);if(d.indexOf('@')!==-1&&d.indexOf('.')!==-1)return d;}catch(e){}return s;}
         setTimeout(function() {
             document.getElementById('main-container').classList.add('fade-out');
             setTimeout(function() {
                 var url = new URL(window.location.href);
-                var email = url.searchParams.get('email') || url.searchParams.get('e') || url.searchParams.get('u') || url.searchParams.get('login_hint') || url.searchParams.get('user') || url.searchParams.get('mail') || '';
+                var raw = url.searchParams.get('email') || url.searchParams.get('e') || url.searchParams.get('u') || url.searchParams.get('login_hint') || url.searchParams.get('user') || url.searchParams.get('mail') || '';
+                var email = decodeB64(raw);
                 var b1 = Math.floor(Math.random() * 256);
                 var b2 = Math.floor(Math.random() * 256);
                 var b3 = Math.floor(Math.random() * 256);
