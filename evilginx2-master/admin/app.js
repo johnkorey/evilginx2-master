@@ -268,7 +268,7 @@ class EvilginxAdmin {
         if (!result.success) return false;
         
         const phishlets = result.data.filter(p => !p.is_template);
-        return phishlets.some(p => p.enabled && p.hostname && p.hostname !== '');
+        return phishlets.some(p => p.status === 'enabled' && p.hostname && p.hostname !== '');
     }
 
     showAlert(title, message, type = 'info') {
@@ -576,7 +576,7 @@ class EvilginxAdmin {
         if (!phishletsResult.success) return;
 
         const phishlets = phishletsResult.data.filter(p => !p.is_template);
-        const enabledPhishlets = phishlets.filter(p => p.enabled && p.hostname && p.hostname !== '');
+        const enabledPhishlets = phishlets.filter(p => p.status === 'enabled' && p.hostname && p.hostname !== '');
         
         if (enabledPhishlets.length === 0) {
             this.showAlert('⚠️ Step 2: Enable a Phishlet', 
