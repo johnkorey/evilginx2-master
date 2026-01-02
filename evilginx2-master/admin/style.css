@@ -159,6 +159,55 @@ input, select, textarea {
     color: var(--text-muted);
 }
 
+/* Login Method Toggle */
+.login-toggle {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    background: var(--bg-tertiary);
+    padding: 4px;
+    border-radius: var(--radius-md);
+}
+
+.toggle-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+}
+
+.toggle-btn:hover {
+    color: var(--text-secondary);
+}
+
+.toggle-btn.active {
+    background: var(--gradient-accent);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-md);
+}
+
+.toggle-btn .icon {
+    width: 16px;
+    height: 16px;
+}
+
+.login-method {
+    display: none;
+}
+
+.login-method.active {
+    display: block;
+}
+
 /* ===== Form Elements ===== */
 .form-group {
     margin-bottom: 1.25rem;

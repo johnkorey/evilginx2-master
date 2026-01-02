@@ -23,6 +23,31 @@ class EvilginxAdmin {
     }
 
     bindEvents() {
+        // Login method toggle
+        this.loginMethod = 'credentials';
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const method = btn.dataset.method;
+                this.loginMethod = method;
+                
+                // Update toggle buttons
+                document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // Show/hide login methods
+                document.querySelectorAll('.login-method').forEach(m => m.classList.remove('active'));
+                document.getElementById(`${method}-login`).classList.add('active');
+                
+                // Update hint text
+                const hint = document.getElementById('login-hint');
+                if (method === 'credentials') {
+                    hint.textContent = 'Use your Management Platform credentials';
+                } else {
+                    hint.textContent = 'API key is shown in terminal when starting Evilginx';
+                }
+            });
+        });
+
         // Login form
         document.getElementById('login-form').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -140,13 +165,35 @@ class EvilginxAdmin {
     }
 
     async login() {
-        const apiKey = document.getElementById('api-key').value;
+        let loginData = {};
+        
+        if (this.loginMethod === 'credentials') {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            if (!email || !password) {
+                this.showToast('Please enter email and password', 'error');
+                return;
+            }
+            loginData = { email: email, password: password };
+        } else {
+            const apiKey = document.getElementById('api-key').value;
+            if (!apiKey) {
+                this.showToast('Please enter API key', 'error');
+                return;
+            }
+            loginData = { api_key: apiKey };
+        }
+        
         const result = await this.apiRequest('/login', {
             method: 'POST',
-            body: JSON.stringify({ api_key: apiKey })
+            body: JSON.stringify(loginData)
         });
 
         if (result.success) {
+            // Store user info if returned
+            if (result.data) {
+                this.currentUser = result.data;
+            }
             this.showDashboard();
             this.loadDashboard();
             this.toast('success', 'Welcome', 'Successfully authenticated');

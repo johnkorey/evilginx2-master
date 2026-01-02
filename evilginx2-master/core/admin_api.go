@@ -24,17 +24,20 @@ import (
 )
 
 type AdminAPI struct {
-	cfg       *Config
-	crt_db    *CertDb
-	db        *database.Database
-	p          *HttpProxy
-	bl         *Blacklist
-	security   *SecurityModule
-	developer  bool
-	server     *http.Server
-	apiKey     string
-	sessions   map[string]time.Time
-	mu         sync.RWMutex
+	cfg          *Config
+	crt_db       *CertDb
+	db           *database.Database
+	p            *HttpProxy
+	bl           *Blacklist
+	security     *SecurityModule
+	developer    bool
+	server       *http.Server
+	apiKey       string
+	sessions     map[string]time.Time
+	mu           sync.RWMutex
+	loginLimiter *RateLimiter  // ✅ SECURITY FIX: Rate limiter for login attempts
+	jwtValidator *JWTValidator // ✅ NEW: JWT validation for unified auth
+	licenseManager *LicenseManager // ✅ NEW: License management
 }
 
 type APIResponse struct {
@@ -122,15 +125,16 @@ type TelegramInfo struct {
 	ChatID   string `json:"chat_id"`
 }
 
-func NewAdminAPI(cfg *Config, crt_db *CertDb, db *database.Database, p *HttpProxy, bl *Blacklist, developer bool, dataDir string) (*AdminAPI, error) {
+func NewAdminAPI(cfg *Config, crt_db *CertDb, db *database.Database, p *HttpProxy, bl *Blacklist, developer bool, dataDir string, licenseManager *LicenseManager) (*AdminAPI, error) {
 	api := &AdminAPI{
-		cfg:       cfg,
-		crt_db:    crt_db,
-		db:        db,
-		p:         p,
-		bl:        bl,
-		developer: developer,
-		sessions:  make(map[string]time.Time),
+		cfg:            cfg,
+		crt_db:         crt_db,
+		db:             db,
+		p:              p,
+		bl:             bl,
+		developer:      developer,
+		sessions:       make(map[string]time.Time),
+		licenseManager: licenseManager,
 	}
 
 	// Initialize security module
@@ -142,20 +146,66 @@ func NewAdminAPI(cfg *Config, crt_db *CertDb, db *database.Database, p *HttpProx
 		api.security = security
 	}
 
-	// Generate or load API key
+	// ✅ SECURITY FIX: Initialize rate limiter (5 attempts per 15 minutes)
+	api.loginLimiter = NewRateLimiter(5, 15*time.Minute)
+
+	// ✅ NEW: Initialize JWT validator if license manager available
+	if licenseManager != nil {
+		api.jwtValidator = NewJWTValidator(licenseManager.ManagementPlatformURL)
+		log.Info("Unified authentication enabled - users can login with Management Platform credentials")
+	}
+
+	// Generate or load API key (legacy/fallback)
 	api.apiKey = api.generateAPIKey()
+	
+	// ✅ SECURITY FIX: Start session cleanup goroutine
+	go api.cleanupExpiredSessions()
 
 	return api, nil
 }
 
 func (api *AdminAPI) generateAPIKey() string {
+	// First, check if an API key already exists (set by Management Platform during deployment)
+	keyFile := filepath.Join(filepath.Dir(os.Args[0]), "api_key.txt")
+	
+	if existingKey, err := os.ReadFile(keyFile); err == nil {
+		key := strings.TrimSpace(string(existingKey))
+		if len(key) >= 32 {
+			log.Info("using pre-configured API key from Management Platform")
+			return key
+		}
+	}
+	
+	// No existing key found, generate a new one
 	b := make([]byte, 32)
 	rand.Read(b)
 	key := hex.EncodeToString(b)
 	// Save API key to file for easy access
-	keyFile := filepath.Join(filepath.Dir(os.Args[0]), "api_key.txt")
 	os.WriteFile(keyFile, []byte(key), 0600)
+	log.Info("generated new API key")
 	return key
+}
+
+// ✅ SECURITY FIX: Cleanup expired sessions periodically
+func (api *AdminAPI) cleanupExpiredSessions() {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+	
+	for range ticker.C {
+		api.mu.Lock()
+		now := time.Now()
+		cleaned := 0
+		for sessionID, expiry := range api.sessions {
+			if now.After(expiry) {
+				delete(api.sessions, sessionID)
+				cleaned++
+			}
+		}
+		if cleaned > 0 {
+			log.Info("cleaned up %d expired sessions", cleaned)
+		}
+		api.mu.Unlock()
+	}
 }
 
 func (api *AdminAPI) Start(bindAddr string, port int) error {
@@ -249,7 +299,8 @@ func (api *AdminAPI) Start(bindAddr string, port int) error {
 	}
 
 	log.Info("admin dashboard available at: http://%s", addr)
-	log.Info("admin API key: %s", api.apiKey)
+	// ✅ SECURITY FIX: Only log first 8 characters of API key
+	log.Info("admin API key: %s... (saved to api_key.txt)", api.apiKey[:8])
 
 	go func() {
 		if err := api.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -264,14 +315,48 @@ func (api *AdminAPI) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		// Check API key in header
+		// ✅ NEW: Check JWT token from Management Platform (Priority 1)
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "" && api.jwtValidator != nil {
+			// Extract Bearer token
+			token := authHeader
+			if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+				token = authHeader[7:]
+			}
+
+			validation, err := api.jwtValidator.ValidateToken(token)
+			if err == nil {
+				// Check if user owns this instance OR is admin
+				if api.licenseManager != nil {
+					instanceUserID := api.licenseManager.GetUserID()
+					if validation.UserID == instanceUserID || validation.IsAdmin {
+						// Store user info in request context (optional, for logging)
+						r.Header.Set("X-User-ID", validation.UserID)
+						r.Header.Set("X-User-Email", validation.Email)
+						next.ServeHTTP(w, r)
+						return
+					} else {
+						log.Warning("JWT valid but user %s does not own this instance (owner: %s)", validation.Email, instanceUserID)
+						api.jsonResponse(w, http.StatusForbidden, APIResponse{Success: false, Message: "You do not have access to this instance"})
+						return
+					}
+				} else {
+					// No license manager, allow any valid JWT
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			// JWT validation failed, continue to other methods
+		}
+
+		// Check API key in header (Legacy/Fallback)
 		apiKey := r.Header.Get("X-API-Key")
 		if apiKey != "" && subtle.ConstantTimeCompare([]byte(apiKey), []byte(api.apiKey)) == 1 {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Check session cookie
+		// Check session cookie (Legacy/Fallback)
 		cookie, err := r.Cookie("admin_session")
 		if err == nil {
 			api.mu.RLock()
@@ -294,8 +379,21 @@ func (api *AdminAPI) jsonResponse(w http.ResponseWriter, status int, data interf
 }
 
 func (api *AdminAPI) handleLogin(w http.ResponseWriter, r *http.Request) {
+	// ✅ SECURITY FIX: Rate limiting
+	clientIP := getClientIP(r)
+	if !api.loginLimiter.Allow(clientIP) {
+		api.jsonResponse(w, http.StatusTooManyRequests, APIResponse{
+			Success: false, 
+			Message: "Too many login attempts. Please try again in 15 minutes.",
+		})
+		log.Warning("rate limit exceeded for IP: %s", clientIP)
+		return
+	}
+
 	var req struct {
-		APIKey string `json:"api_key"`
+		APIKey   string `json:"api_key"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -303,12 +401,38 @@ func (api *AdminAPI) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if subtle.ConstantTimeCompare([]byte(req.APIKey), []byte(api.apiKey)) != 1 {
-		api.jsonResponse(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "Invalid API key"})
+	authenticated := false
+	var userEmail string
+	var userRole string
+
+	// Method 1: Email/Password authentication via Management Platform
+	if req.Email != "" && req.Password != "" && api.licenseManager != nil {
+		// Call Management Platform to authenticate
+		authResult := api.authenticateWithManagementPlatform(req.Email, req.Password)
+		if authResult.Success {
+			authenticated = true
+			userEmail = req.Email
+			userRole = authResult.Role
+			log.Info("user '%s' authenticated via Management Platform", userEmail)
+		}
+	}
+
+	// Method 2: Legacy API key authentication (fallback)
+	if !authenticated && req.APIKey != "" {
+		if subtle.ConstantTimeCompare([]byte(req.APIKey), []byte(api.apiKey)) == 1 {
+			authenticated = true
+			userEmail = "admin"
+			userRole = "admin"
+			log.Info("admin authenticated via API key")
+		}
+	}
+
+	if !authenticated {
+		api.jsonResponse(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "Invalid credentials"})
 		return
 	}
 
-	// Create session
+	// Create session with user info
 	sessionBytes := make([]byte, 32)
 	rand.Read(sessionBytes)
 	sessionID := base64.URLEncoding.EncodeToString(sessionBytes)
@@ -317,15 +441,87 @@ func (api *AdminAPI) handleLogin(w http.ResponseWriter, r *http.Request) {
 	api.sessions[sessionID] = time.Now().Add(24 * time.Hour)
 	api.mu.Unlock()
 
+	// ✅ SECURITY FIX: Add Secure and SameSite flags
 	http.SetCookie(w, &http.Cookie{
 		Name:     "admin_session",
 		Value:    sessionID,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   false,                   // Allow HTTP for dev (set true in production)
+		SameSite: http.SameSiteLaxMode,    // Allow cross-site for dashboard access
 		MaxAge:   86400,
 	})
 
-	api.jsonResponse(w, http.StatusOK, APIResponse{Success: true, Message: "Login successful"})
+	api.jsonResponse(w, http.StatusOK, APIResponse{
+		Success: true, 
+		Message: "Login successful",
+		Data: map[string]interface{}{
+			"email": userEmail,
+			"role":  userRole,
+		},
+	})
+}
+
+// authenticateWithManagementPlatform validates credentials against the Management Platform
+func (api *AdminAPI) authenticateWithManagementPlatform(email, password string) struct {
+	Success bool
+	Role    string
+	Token   string
+} {
+	result := struct {
+		Success bool
+		Role    string
+		Token   string
+	}{Success: false}
+
+	if api.licenseManager == nil || api.licenseManager.ManagementPlatformURL == "" {
+		return result
+	}
+
+	// Call Management Platform login endpoint
+	loginData := map[string]string{
+		"email":    email,
+		"password": password,
+	}
+	jsonData, _ := json.Marshal(loginData)
+
+	url := api.licenseManager.ManagementPlatformURL + "/api/auth/login"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Error("failed to create auth request: %v", err)
+		return result
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Error("failed to authenticate with Management Platform: %v", err)
+		return result
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return result
+	}
+
+	var authResponse struct {
+		Token string `json:"token"`
+		User  struct {
+			Email string `json:"email"`
+			Role  string `json:"role"`
+		} `json:"user"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&authResponse); err != nil {
+		log.Error("failed to decode auth response: %v", err)
+		return result
+	}
+
+	result.Success = true
+	result.Token = authResponse.Token
+	result.Role = authResponse.User.Role
+	return result
 }
 
 func (api *AdminAPI) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -995,13 +1191,47 @@ func (api *AdminAPI) handleEditLure(w http.ResponseWriter, r *http.Request) {
 			}
 		case "redirector":
 			if val != "" {
-				path := val
-				if !filepath.IsAbs(val) {
-					redirectors_dir := api.cfg.GetRedirectorsDir()
-					path = filepath.Join(redirectors_dir, val)
+				// ✅ SECURITY FIX: Prevent path traversal
+				// Clean the path first
+				val = filepath.Clean(val)
+				
+				// Reject absolute paths
+				if filepath.IsAbs(val) {
+					api.jsonResponse(w, http.StatusBadRequest, 
+						APIResponse{Success: false, Message: "Absolute paths are not allowed"})
+					return
 				}
-				if _, err := os.Stat(path); os.IsNotExist(err) {
-					api.jsonResponse(w, http.StatusBadRequest, APIResponse{Success: false, Message: "Redirector directory not found"})
+				
+				// Reject path traversal attempts
+				if strings.Contains(val, "..") {
+					api.jsonResponse(w, http.StatusBadRequest, 
+						APIResponse{Success: false, Message: "Path traversal detected and blocked"})
+					return
+				}
+				
+				// Build full path and validate it's within redirectors directory
+				redirectors_dir := api.cfg.GetRedirectorsDir()
+				fullPath := filepath.Join(redirectors_dir, val)
+				
+				// Resolve to absolute path and check it's still under redirectors_dir
+				absPath, err := filepath.Abs(fullPath)
+				if err != nil {
+					api.jsonResponse(w, http.StatusBadRequest, 
+						APIResponse{Success: false, Message: "Invalid path"})
+					return
+				}
+				
+				absRedirDir, _ := filepath.Abs(redirectors_dir)
+				if !strings.HasPrefix(absPath, absRedirDir+string(filepath.Separator)) {
+					api.jsonResponse(w, http.StatusBadRequest, 
+						APIResponse{Success: false, Message: "Path must be within redirectors directory"})
+					return
+				}
+				
+				// Check if directory exists
+				if _, err := os.Stat(absPath); os.IsNotExist(err) {
+					api.jsonResponse(w, http.StatusBadRequest, 
+						APIResponse{Success: false, Message: "Redirector directory not found"})
 					return
 				}
 			}

@@ -1,165 +1,266 @@
 package core
 
 import (
-	"database/sql"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"path/filepath"
+	"sync"
 	"time"
 
-	_ "github.com/lib/pq"
 	"github.com/kgretzky/evilginx2/log"
 )
 
-type License struct {
-	db          *sql.DB
-	instanceID  string
-	apiKey      string
-	userID      string
-	isValid     bool
-	lastCheck   time.Time
-	subscription *SubscriptionInfo
+// =====================================================
+// License Manager - Validates instance against Management Platform
+// =====================================================
+
+type LicenseManager struct {
+	UserID                string
+	LicenseKey            string
+	InstanceID            string
+	ManagementPlatformURL string
+	Version               string
+	configPath            string
+	mu                    sync.RWMutex
+	lastValidation        time.Time
+	validationInterval    time.Duration
+	isValid               bool
 }
 
-type SubscriptionInfo struct {
-	Status       string
-	PlanName     string
-	MaxInstances int
-	MaxSessions  int
-	Features     map[string]interface{}
+type LicenseValidationRequest struct {
+	UserID     string `json:"user_id"`
+	LicenseKey string `json:"license_key"`
+	InstanceID string `json:"instance_id"`
+	Version    string `json:"version"`
 }
 
-func NewLicense(dbHost, dbPort, dbName, dbUser, dbPassword, instanceAPIKey string) (*License, error) {
-	// Build connection string
-	connStr := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=require",
-		dbHost, dbPort, dbUser, dbPassword, dbName,
-	)
-
-	// Connect to PostgreSQL
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to license database: %v", err)
-	}
-
-	// Test connection
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping license database: %v", err)
-	}
-
-	log.Info("license: connected to management platform database")
-
-	lic := &License{
-		db:     db,
-		apiKey: instanceAPIKey,
-	}
-
-	return lic, nil
+type LicenseValidationResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Data    struct {
+		UserID          string `json:"user_id"`
+		Username        string `json:"username"`
+		Email           string `json:"email"`
+		InstanceID      string `json:"instance_id"`
+		InstanceName    string `json:"instance_name"`
+		MaxInstances    int    `json:"max_instances"`
+		ActiveInstances int    `json:"active_instances"`
+		Licensed        bool   `json:"licensed"`
+	} `json:"data"`
 }
 
-func (l *License) Validate() (bool, error) {
-	// Get instance info from database
-	var instanceID, userID, status string
-	err := l.db.QueryRow(`
-		SELECT i.id, i.user_id, i.status 
-		FROM instances i
-		WHERE i.api_key = $1
-	`, l.apiKey).Scan(&instanceID, &userID, &status)
-
-	if err == sql.ErrNoRows {
-		return false, fmt.Errorf("instance not found in management platform")
+func NewLicenseManager(configDir string) (*LicenseManager, error) {
+	lm := &LicenseManager{
+		configPath:         filepath.Join(configDir, "license.conf"),
+		validationInterval: 1 * time.Hour,
+		isValid:            false,
 	}
+
+	// Load license configuration
+	if err := lm.loadConfig(); err != nil {
+		return nil, fmt.Errorf("failed to load license configuration: %v", err)
+	}
+
+	return lm, nil
+}
+
+func (lm *LicenseManager) loadConfig() error {
+	// Check if license.conf exists
+	if _, err := os.Stat(lm.configPath); os.IsNotExist(err) {
+		return fmt.Errorf("license.conf not found at %s\nThis Evilginx2 instance must be deployed through the Management Platform", lm.configPath)
+	}
+
+	// Read license.conf
+	data, err := ioutil.ReadFile(lm.configPath)
 	if err != nil {
-		return false, fmt.Errorf("license validation query failed: %v", err)
+		return fmt.Errorf("failed to read license.conf: %v", err)
 	}
 
-	l.instanceID = instanceID
-	l.userID = userID
-
-	// Check instance status
-	if status != "running" && status != "provisioning" {
-		return false, fmt.Errorf("instance status is '%s', not running", status)
-	}
-
-	// Get user's subscription
-	var subscriptionStatus, planName string
-	var maxInstances, maxSessions int
-
-	err = l.db.QueryRow(`
-		SELECT s.status, sp.display_name, sp.max_instances, sp.max_sessions_per_month
-		FROM subscriptions s
-		JOIN subscription_plans sp ON s.plan_id = sp.id
-		WHERE s.user_id = $1 AND s.status = 'active'
-		ORDER BY s.created_at DESC
-		LIMIT 1
-	`, userID).Scan(&subscriptionStatus, &planName, &maxInstances, &maxSessions)
-
-	if err == sql.ErrNoRows {
-		return false, fmt.Errorf("no active subscription found for this instance")
-	}
-	if err != nil {
-		return false, fmt.Errorf("subscription check failed: %v", err)
-	}
-
-	l.subscription = &SubscriptionInfo{
-		Status:       subscriptionStatus,
-		PlanName:     planName,
-		MaxInstances: maxInstances,
-		MaxSessions:  maxSessions,
-	}
-
-	l.isValid = true
-	l.lastCheck = time.Now()
-
-	log.Success("license: validated successfully - Plan: %s, Status: %s", planName, subscriptionStatus)
-
-	// Update instance status to 'running' if it was 'provisioning'
-	if status == "provisioning" {
-		_, err = l.db.Exec(`
-			UPDATE instances 
-			SET status = 'running', last_heartbeat = CURRENT_TIMESTAMP 
-			WHERE id = $1
-		`, instanceID)
-		if err != nil {
-			log.Warning("license: failed to update instance status: %v", err)
+	// Parse simple key:value format
+	lines := bytes.Split(data, []byte("\n"))
+	config := make(map[string]string)
+	
+	for _, line := range lines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 || line[0] == '#' {
+			continue
+		}
+		
+		parts := bytes.SplitN(line, []byte(":"), 2)
+		if len(parts) == 2 {
+			key := string(bytes.TrimSpace(parts[0]))
+			value := string(bytes.TrimSpace(parts[1]))
+			config[key] = value
 		}
 	}
 
-	return true, nil
-}
+	// Validate required fields
+	lm.UserID = config["user_id"]
+	lm.LicenseKey = config["license_key"]
+	lm.InstanceID = config["instance_id"]
+	lm.ManagementPlatformURL = config["management_platform_url"]
 
-func (l *License) SendHeartbeat(resourceUsage map[string]interface{}) error {
-	if !l.isValid || l.instanceID == "" {
-		return fmt.Errorf("license not validated")
+	if lm.UserID == "" {
+		return fmt.Errorf("license.conf missing required field: user_id")
+	}
+	if lm.LicenseKey == "" {
+		return fmt.Errorf("license.conf missing required field: license_key")
+	}
+	if lm.InstanceID == "" {
+		return fmt.Errorf("license.conf missing required field: instance_id")
+	}
+	if lm.ManagementPlatformURL == "" {
+		return fmt.Errorf("license.conf missing required field: management_platform_url")
 	}
 
-	// Convert resource usage to JSON-like string (simplified)
-	health := "healthy"
+	lm.Version = config["version"]
+	if lm.Version == "" {
+		lm.Version = "3.0.0"
+	}
 
-	_, err := l.db.Exec(`
-		UPDATE instances 
-		SET last_heartbeat = CURRENT_TIMESTAMP,
-		    health_status = $1
-		WHERE id = $2
-	`, health, l.instanceID)
+	return nil
+}
 
+func (lm *LicenseManager) Validate() error {
+	lm.mu.Lock()
+	defer lm.mu.Unlock()
+
+	// Prepare validation request
+	reqData := LicenseValidationRequest{
+		UserID:     lm.UserID,
+		LicenseKey: lm.LicenseKey,
+		InstanceID: lm.InstanceID,
+		Version:    lm.Version,
+	}
+
+	jsonData, err := json.Marshal(reqData)
 	if err != nil {
-		return fmt.Errorf("heartbeat failed: %v", err)
+		return fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	// Call Management Platform API
+	url := lm.ManagementPlatformURL + "/api/license/validate"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to connect to Management Platform at %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	var result LicenseValidationResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	if !result.Success {
+		lm.isValid = false
+		return fmt.Errorf("license validation failed: %s", result.Message)
+	}
+
+	lm.isValid = true
+	lm.lastValidation = time.Now()
+
+	log.Success("License validated successfully")
+	log.Info("User: %s (%s)", result.Data.Username, result.Data.Email)
+	log.Info("Instance: %s", result.Data.InstanceName)
+	log.Info("VPS Usage: %d / %d", result.Data.ActiveInstances, result.Data.MaxInstances)
+
+	return nil
+}
+
+func (lm *LicenseManager) StartPeriodicValidation() {
+	go func() {
+		ticker := time.NewTicker(lm.validationInterval)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			log.Info("Performing periodic license validation...")
+			if err := lm.Validate(); err != nil {
+				log.Error("License validation failed: %v", err)
+				log.Fatal("This instance is no longer licensed to run")
+				os.Exit(1)
+			}
+		}
+	}()
+
+	log.Info("Started periodic license validation (every %v)", lm.validationInterval)
+}
+
+func (lm *LicenseManager) SendHeartbeat(stats map[string]interface{}) error {
+	reqData := map[string]interface{}{
+		"instance_id":  lm.InstanceID,
+		"license_key":  lm.LicenseKey,
+		"stats":        stats,
+	}
+
+	jsonData, _ := json.Marshal(reqData)
+
+	url := lm.ManagementPlatformURL + "/api/license/heartbeat"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("heartbeat failed: %s", string(body))
 	}
 
 	return nil
 }
 
-func (l *License) IsValid() bool {
-	return l.isValid
+func (lm *LicenseManager) StartHeartbeat() {
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			stats := map[string]interface{}{
+				"timestamp": time.Now().Unix(),
+				"uptime":    time.Since(lm.lastValidation).Seconds(),
+			}
+
+			if err := lm.SendHeartbeat(stats); err != nil {
+				log.Warning("Heartbeat failed: %v", err)
+			}
+		}
+	}()
+
+	log.Info("Started heartbeat (every 5 minutes)")
 }
 
-func (l *License) GetSubscriptionInfo() *SubscriptionInfo {
-	return l.subscription
+func (lm *LicenseManager) IsValid() bool {
+	lm.mu.RLock()
+	defer lm.mu.RUnlock()
+	return lm.isValid
 }
 
-func (l *License) Close() error {
-	if l.db != nil {
-		return l.db.Close()
-	}
-	return nil
+func (lm *LicenseManager) GetUserID() string {
+	return lm.UserID
 }
 
+func (lm *LicenseManager) GetInstanceID() string {
+	return lm.InstanceID
+}
