@@ -60,22 +60,16 @@ class EvilginxAdmin {
             this.confirmDeleteAllSessions();
         });
 
-        // Config form inputs - auto save on change
-        ['cfg-domain', 'cfg-external-ip', 'cfg-bind-ip', 'cfg-unauth-url'].forEach(id => {
-            document.getElementById(id).addEventListener('change', (e) => {
-                this.updateConfig(id.replace('cfg-', '').replace('-', '_'), e.target.value);
-            });
+        // Config form - save all settings on submit
+        document.getElementById('config-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveGeneralSettings();
         });
 
-        document.getElementById('cfg-autocert').addEventListener('change', (e) => {
-            this.updateConfig('autocert', e.target.checked ? 'true' : 'false');
-        });
-
-        // Blacklist mode
-        document.querySelectorAll('input[name="blacklist"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                this.updateBlacklist(e.target.value);
-            });
+        // Blacklist form
+        document.getElementById('blacklist-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveBlacklistSettings();
         });
 
         // Proxy form
@@ -910,6 +904,35 @@ class EvilginxAdmin {
         }
     }
 
+    async saveGeneralSettings() {
+        const settings = {
+            domain: document.getElementById('cfg-domain').value,
+            external_ip: document.getElementById('cfg-external-ip').value,
+            bind_ip: document.getElementById('cfg-bind-ip').value,
+            unauth_url: document.getElementById('cfg-unauth-url').value,
+            autocert: document.getElementById('cfg-autocert').checked
+        };
+
+        try {
+            // Save each setting
+            for (const [field, value] of Object.entries(settings)) {
+                const result = await this.apiRequest('/config', {
+                    method: 'POST',
+                    body: JSON.stringify({ field, value: String(value) })
+                });
+                
+                if (!result.success) {
+                    this.toast('error', 'Error', `Failed to save ${field}: ${result.message}`);
+                    return;
+                }
+            }
+            
+            this.toast('success', 'Settings Saved', 'General settings have been saved successfully');
+        } catch (error) {
+            this.toast('error', 'Error', 'Failed to save settings');
+        }
+    }
+
     async updateConfig(field, value) {
         const result = await this.apiRequest('/config', {
             method: 'POST',
@@ -918,6 +941,51 @@ class EvilginxAdmin {
 
         if (result.success) {
             this.toast('success', 'Config Updated', `${field} has been updated`);
+        } else {
+            this.toast('error', 'Error', result.message);
+        }
+    }
+
+    async saveGeneralSettings() {
+        const settings = {
+            domain: document.getElementById('cfg-domain').value,
+            external_ip: document.getElementById('cfg-external-ip').value,
+            bind_ip: document.getElementById('cfg-bind-ip').value,
+            unauth_url: document.getElementById('cfg-unauth-url').value,
+            autocert: document.getElementById('cfg-autocert').checked ? 'true' : 'false'
+        };
+
+        try {
+            for (const [field, value] of Object.entries(settings)) {
+                const result = await this.apiRequest('/config', {
+                    method: 'POST',
+                    body: JSON.stringify({ field, value })
+                });
+                if (!result.success) {
+                    this.toast('error', 'Error', `Failed to save ${field}`);
+                    return;
+                }
+            }
+            this.toast('success', 'Settings Saved', 'General settings saved successfully');
+        } catch (error) {
+            this.toast('error', 'Error', 'Failed to save settings');
+        }
+    }
+
+    async saveBlacklistSettings() {
+        const selectedMode = document.querySelector('input[name="blacklist"]:checked');
+        if (!selectedMode) {
+            this.toast('error', 'Error', 'Please select a blacklist mode');
+            return;
+        }
+
+        const result = await this.apiRequest('/blacklist', {
+            method: 'POST',
+            body: JSON.stringify({ mode: selectedMode.value })
+        });
+
+        if (result.success) {
+            this.toast('success', 'Settings Saved', `Blacklist mode set to ${selectedMode.value}`);
         } else {
             this.toast('error', 'Error', result.message);
         }

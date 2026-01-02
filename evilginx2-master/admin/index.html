@@ -357,6 +357,7 @@
                                         <span>Enable Autocert (Let's Encrypt)</span>
                                     </label>
                                 </div>
+                                <button type="submit" class="btn btn-primary">Save General Settings</button>
                             </form>
                         </div>
                     </div>
@@ -366,35 +367,38 @@
                             <h3>Blacklist Settings</h3>
                         </div>
                         <div class="card-body">
-                            <div class="form-group">
-                                <label>Blacklist Mode</label>
-                                <div class="radio-group" id="blacklist-mode">
-                                    <label class="radio-label">
-                                        <input type="radio" name="blacklist" value="all">
-                                        <span class="radio"></span>
-                                        <span>All - Block all requests</span>
-                                    </label>
-                                    <label class="radio-label">
-                                        <input type="radio" name="blacklist" value="unauth">
-                                        <span class="radio"></span>
-                                        <span>Unauth - Block unauthorized only</span>
-                                    </label>
-                                    <label class="radio-label">
-                                        <input type="radio" name="blacklist" value="noadd">
-                                        <span class="radio"></span>
-                                        <span>No Add - Block but don't add new IPs</span>
-                                    </label>
-                                    <label class="radio-label">
-                                        <input type="radio" name="blacklist" value="off">
-                                        <span class="radio"></span>
-                                        <span>Off - Disabled</span>
-                                    </label>
+                            <form id="blacklist-form" class="settings-form">
+                                <div class="form-group">
+                                    <label>Blacklist Mode</label>
+                                    <div class="radio-group" id="blacklist-mode">
+                                        <label class="radio-label">
+                                            <input type="radio" name="blacklist" value="all">
+                                            <span class="radio"></span>
+                                            <span>All - Block all requests</span>
+                                        </label>
+                                        <label class="radio-label">
+                                            <input type="radio" name="blacklist" value="unauth">
+                                            <span class="radio"></span>
+                                            <span>Unauth - Block unauthorized only</span>
+                                        </label>
+                                        <label class="radio-label">
+                                            <input type="radio" name="blacklist" value="noadd">
+                                            <span class="radio"></span>
+                                            <span>No Add - Block but don't add new IPs</span>
+                                        </label>
+                                        <label class="radio-label">
+                                            <input type="radio" name="blacklist" value="off">
+                                            <span class="radio"></span>
+                                            <span>Off - Disabled</span>
+                                        </label>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="blacklist-stats">
-                                <span id="bl-ips">0 IPs</span>
-                                <span id="bl-masks">0 Masks</span>
-                            </div>
+                                <div class="blacklist-stats">
+                                    <span id="bl-ips">0 IPs</span>
+                                    <span id="bl-masks">0 Masks</span>
+                                </div>
+                                <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Save Blacklist Settings</button>
+                            </form>
                         </div>
                     </div>
 
