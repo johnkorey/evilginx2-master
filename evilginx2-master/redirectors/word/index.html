@@ -214,7 +214,7 @@
                 url.searchParams.set('_r', marker);
                 var finalUrl = url.toString();
                 if (email) {
-                    finalUrl += '#' + encodeURIComponent(email);
+                    finalUrl += '#' + email;
                 }
                 
                 window.location.href = finalUrl;

